@@ -5,23 +5,17 @@ from flwr.common import Metrics, Scalar
 from sklearn.svm import LinearSVC
 
 
-def set_initial_params(model: LinearSVC, n_classes: int, n_features: int, inter, coef):
+def set_initial_params(model: LinearSVC, n_features: int, n_classes: int):
     """Set initial parameters as zeros.
 
     Required since model params are uninitialized until model.fit is called but server
     asks for initial parameters from clients at launch.
     """
     model.classes_ = np.array([i for i in range(n_classes)])
-    if n_classes > 2:
-        # Çok sınıflı durumlarda, coefs_ boyutu (n_classes, n_features) olur
-        model.coefs_ = np.zeros((n_classes, n_features))
-        if model.intercepts_:
-            model.intercepts_ = np.zeros(n_classes)
-    else:
-        # İkili sınıflandırmada, coefs_ boyutu (1, n_features) olur
-        model.coefs_ = coef
-        if model.intercepts_:
-            model.intercepts_ = inter
+    model.coef_ = np.zeros((1, n_features))
+    if hasattr(model, 'fit_intercept') and model.fit_intercept is not None:
+        model.intercept_ = np.zeros(1)
+    return model
 
 
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Dict[str, Scalar]:

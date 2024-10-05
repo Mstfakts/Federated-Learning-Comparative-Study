@@ -1,8 +1,22 @@
+import logging
 import os
 
 import yaml
+from flwr.common.logger import log
 
-current_file_directory = os.path.dirname(os.path.abspath(__file__))
+root_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+fl_directory = root_directory + "/experiments/federated_learning"
 
-with open(f"{current_file_directory}/mlp_config.yaml", "r") as file:
+config_files = {
+    'mlp': '/mlp/mlp_config.yaml',
+    'linear_svc': '/linear_svc/linear_svc_config.yaml'
+}
+
+config_file = config_files['linear_svc']
+with open(f"{fl_directory}/{config_file}", "r") as file:
     config = yaml.safe_load(file)
+
+log(
+    logging.WARNING,
+    f"Current config file: {config_file}"
+)
