@@ -1,6 +1,6 @@
 import os
 
-os.environ["config_file"] = "mlp"
+os.environ["config_file"] = "logistic_regression"
 import random
 
 import numpy as np

@@ -1,10 +1,10 @@
 import os
+
+os.environ["config_file"] = "linear_svc"
 import random
 
 import numpy as np
 import torch
-
-from configs.config import config
 
 
 def set_seed(seed):
