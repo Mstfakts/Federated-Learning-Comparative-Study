@@ -24,12 +24,12 @@ if __name__ == "__main__":
     set_seed(random.randint(1, 1000))
 
     commands = [
-        ["python", f"./{config['experiment']['folder']}/server.py"],
-        ["python", f"./{config['experiment']['folder']}/client.py", "--partition-id", "0"],
-        ["python", f"./{config['experiment']['folder']}/client.py", "--partition-id", "1"],
-        ["python", f"./{config['experiment']['folder']}/client.py", "--partition-id", "2"],
-        ["python", f"./{config['experiment']['folder']}/client.py", "--partition-id", "3"],
-        ["python", f"./{config['experiment']['folder']}/client.py", "--partition-id", "4"]
+        ["python", f"./server.py"],
+        ["python", f"./client.py", "--partition-id", "0"],
+        ["python", f"./client.py", "--partition-id", "1"],
+        ["python", f"./client.py", "--partition-id", "2"],
+        ["python", f"./client.py", "--partition-id", "3"],
+        ["python", f"./client.py", "--partition-id", "4"]
     ]
 
     for command in commands:

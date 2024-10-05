@@ -1,7 +1,7 @@
 import logging
 from functools import reduce
 from typing import List, Tuple
-
+from configs.config import config
 import numpy as np
 from flwr.common import NDArrays, parameters_to_ndarrays
 from flwr.common.logger import log
@@ -184,11 +184,16 @@ def custom_aggregate(results: List[Tuple[NDArrays, int]]) -> NDArrays:
         ]
         return weights_prime
 
-    weights_prime = weighted_average()
-    # weights_prime = train_precision()
-    # weights_prime = adaptive_aggregation()
-    # weights_prime = [np.ones_like(arr) for arr in weights_prime]
-    # weights_prime = entropy_weighted_average()
-    # weights_prime = entro_metric()
-    # weights_prime = metric()
+    aggregation_method = {
+        'weighted': weighted_average,
+        'f1': metric
+    }
+
+    selected_method = aggregation_method[config['aggregation']['method']]
+    log(
+        logging.WARNING,
+        f"The aggregation method is: {config['aggregation']['method']}"
+    )
+
+    weights_prime = selected_method()
     return weights_prime
