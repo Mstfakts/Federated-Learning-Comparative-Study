@@ -1,17 +1,20 @@
 import logging
 import os
 import random
-from typing import Dict, Tuple
-from configs.config import config
+from typing import Dict, Tuple, Union
+
 import pandas as pd
 import torch
-from datasets import Dataset as HFDataset
+import xgboost as xgb
+from datasets import DatasetDict, Dataset as HFDataset
 from flwr.common.logger import log
-from flwr_datasets.partitioner import DirichletPartitioner
+from flwr_datasets.partitioner import DirichletPartitioner, IidPartitioner
 from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset, DataLoader
+
+from configs.config import config
 
 # Set up the data root directory
 current_file_directory = os.path.dirname(os.path.abspath(__file__))
@@ -107,6 +110,14 @@ def split_data(data: pd.DataFrame, smote: bool = False) -> Tuple[pd.DataFrame, p
     return train_data, test_data, val_data
 
 
+def transform_dataset_to_dmatrix(data: Union[Dataset, DatasetDict]) -> xgb.core.DMatrix:
+    """Transform dataset to DMatrix format for xgboost."""
+    x = data.iloc[:, :-2]
+    y = data["def_pay"]
+    new_data = xgb.DMatrix(x, label=y)
+    return new_data
+
+
 def load_data(
         partition_id: int,
         n_partitions: int,
@@ -133,21 +144,24 @@ def load_data(
     data = pd.read_csv(current_file_directory + config['data']['dataset_path'])
     data = data_preprocess(data, scale=scale)
 
-    # Split the data
-    train_data, test_data, val_data = split_data(data, smote=smote)
-
     # Partition the training data for federated learning
     partitioner = DirichletPartitioner(num_partitions=n_partitions,
                                        partition_by="def_pay",
                                        alpha=10,
                                        min_partition_size=1000,
                                        self_balancing=True)
-    partitioner.dataset = HFDataset.from_pandas(train_data, preserve_index=False)
-    datas = partitioner.load_partition(partition_id)
-    train_df = datas.to_pandas()
+    partitioner.dataset = HFDataset.from_pandas(data, preserve_index=False)
+    client_data = partitioner.load_partition(partition_id).to_pandas()
+
+    # Split the data
+    train_data, test_data, val_data = split_data(client_data, smote=smote)
+
+    num_train = len(train_data)
+    num_test = len(test_data)
+    num_val = len(val_data)
 
     # Create custom datasets
-    trainset = DataFrameDataset(train_df)
+    trainset = DataFrameDataset(train_data)
     testset = DataFrameDataset(test_data)
     valset = DataFrameDataset(val_data)
 
@@ -158,13 +172,66 @@ def load_data(
 
     log(
         logging.WARNING,
-        f"\nClient ID: {partition_id}/{n_partitions} \nClass distribution: \n{train_df['def_pay'].value_counts()}"
+        f"\nClient ID: {partition_id}/{n_partitions} "
+        f"\nData split: (Train - Test - Val) {num_train} - {num_test} - {num_val} "
+        f"\nClass distribution: \n{train_data['def_pay'].value_counts()} "
     )
 
     dataset_sizes = {
-        "trainset": len(train_df),
-        "testset": len(test_data),
-        "valset": len(val_data)
+        "trainset": num_train,
+        "testset": num_test,
+        "valset": num_val
     }
 
     return trainloader, testloader, valloader, dataset_sizes
+
+
+def load_xgboost_data(
+        partition_id: int,
+        n_partitions: int,
+        batch_size: int = 32,
+        smote: bool = False,
+        scale: bool = False
+) -> [xgb.core.DMatrix, xgb.core.DMatrix, xgb.core.DMatrix, int, int, int]:
+    """
+    Load the dataset and partition it for federated learning XGBoost.
+    Returns DataLoaDMatrixders for training, validation, and test sets. Also the length of them
+
+    Args:
+        partition_id (int): The partition ID for the client.
+        n_partitions (int): Total number of partitions (clients).
+        batch_size (int): Batch size for DataLoader.
+        smote (bool): Whether to apply SMOTE to the training data.
+        scale (bool): Whether to scale the features.
+
+    Returns:
+        Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int]]: DataLoaders and dataset sizes.
+    """
+    # Load and preprocess the data
+    data = pd.read_csv(current_file_directory + config['data']['dataset_path'])
+    data = data_preprocess(data, scale=scale)
+
+    # Partition data
+    partitioner = IidPartitioner(num_partitions=n_partitions)
+    partitioner.dataset = HFDataset.from_pandas(data, preserve_index=False)
+    client_data = partitioner.load_partition(partition_id).to_pandas()
+
+    # Split the data
+    train_data, test_data, val_data = split_data(client_data, smote=smote)
+
+    num_train = len(train_data)
+    num_test = len(test_data)
+    num_val = len(val_data)
+
+    log(
+        logging.WARNING,
+        f"\nClient ID: {partition_id}/{n_partitions} "
+        f"\nData split: (Train - Test - Val) {num_train} - {num_test} - {num_val} "
+        f"\nClass distribution: \n{train_data['def_pay'].value_counts()} "
+    )
+
+    train_dmatrix = transform_dataset_to_dmatrix(train_data)
+    test_dmatrix = transform_dataset_to_dmatrix(test_data)
+    valid_dmatrix = transform_dataset_to_dmatrix(val_data)
+
+    return train_dmatrix, test_dmatrix, valid_dmatrix, num_train, num_test, num_val
