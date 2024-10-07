@@ -1,4 +1,5 @@
 import os
+import time
 
 os.environ["config_file"] = "linear_svc"
 import random
@@ -21,16 +22,19 @@ def run_in_new_terminal(command):
 
 
 if __name__ == "__main__":
-    set_seed(random.randint(1, 1000))
+    for _ in range(10):
+        set_seed(random.randint(1, 1000))
 
-    commands = [
-        ["python", f"./server.py"],
-        ["python", f"./client.py", "--partition-id", "0"],
-        ["python", f"./client.py", "--partition-id", "1"],
-        ["python", f"./client.py", "--partition-id", "2"],
-        ["python", f"./client.py", "--partition-id", "3"],
-        ["python", f"./client.py", "--partition-id", "4"]
-    ]
+        commands = [
+            ["python", f"./server.py"],
+            ["python", f"./client.py", "--partition-id", "0"],
+            ["python", f"./client.py", "--partition-id", "1"],
+            ["python", f"./client.py", "--partition-id", "2"],
+            ["python", f"./client.py", "--partition-id", "3"],
+            ["python", f"./client.py", "--partition-id", "4"]
+        ]
 
-    for command in commands:
-        run_in_new_terminal(command)
+        for command in commands:
+            run_in_new_terminal(command)
+
+        time.sleep(25)

@@ -1,7 +1,9 @@
 import argparse
+import os
 from logging import INFO
 from typing import Dict
 
+os.environ["config_file"] = "xgboost"
 import flwr as fl
 import xgboost as xgb
 from flwr.client import start_client
@@ -158,6 +160,8 @@ def main() -> None:
         partition_id=partition_id,
         n_partitions=config['client'],
         batch_size=config['data']['batch_size'],
+        scale=config['data']['scale'],
+        smote=config['data']['smote'],
     )
 
     params = {
