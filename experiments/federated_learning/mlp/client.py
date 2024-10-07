@@ -1,7 +1,9 @@
 import argparse
+import os
 import warnings
 from typing import List, Tuple, Dict, Any, Optional
 
+os.environ["config_file"] = "mlp"
 import numpy as np
 from flwr.client import NumPyClient
 from sklearn.metrics import classification_report
@@ -29,6 +31,8 @@ train_loader, test_loader, val_loader, num_examples = load_data(
     partition_id=partition_id,
     n_partitions=config['client'],
     batch_size=config['data']['batch_size'],
+    scale=config['data']['scale'],
+    smote=config['data']['smote'],
 )
 
 

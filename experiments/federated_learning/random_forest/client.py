@@ -3,7 +3,7 @@ import os
 import warnings
 from typing import List, Tuple, Dict, Any, Optional
 
-os.environ["config_file"] = "linear_svc"
+os.environ["config_file"] = "random_forest"
 import numpy as np
 from flwr.client import NumPyClient
 from sklearn.metrics import classification_report
@@ -11,9 +11,8 @@ from sklearn.metrics import log_loss
 
 from configs.config import config
 from data.dataset import load_data
-from experiments.federated_learning.linear_svc.model import model
+from experiments.federated_learning.random_forest.model import model
 from utils.data_compatibility_utils import flatten_dict
-from utils.federated_learning_utils import set_initial_params
 
 # Get partition ID from command-line arguments
 parser = argparse.ArgumentParser(description="Flower Client")
@@ -58,7 +57,6 @@ class FlowerClient(NumPyClient):
     def fit(
             self, parameters: List[np.ndarray], config: Dict[str, Any]
     ) -> Tuple[List[np.ndarray], int, Dict[str, Any]]:
-
         """
         Train the model on local data.
 
@@ -89,7 +87,7 @@ class FlowerClient(NumPyClient):
         report = flatten_dict(val_report)
         report["train_accuracy"] = train_accuracy
 
-        return self.get_parameters(config), len(self.train_data), report
+        return self.get_parameters(), len(self.train_data), report
 
     def evaluate(
             self, parameters: List[np.ndarray], config: Dict[str, Any]
@@ -134,36 +132,35 @@ class FlowerClient(NumPyClient):
         Returns:
             List[np.ndarray]: Model parameters (weights and biases).
         """
-        # Check if the model has been initialized and has intercepts
-        if hasattr(self.model, 'fit_intercept') and self.model.fit_intercept is not None:
-            params = [
-                self.model.coef_,
-                self.model.intercept_,
-            ]
-        else:
-            params = [
-                self.model.coef_,
-            ]
+        params = [
+            self.model.n_estimators,
+            self.model.max_depth,
+            self.model.min_samples_split,
+            self.model.min_samples_leaf,
+        ]
         return params
 
-    def set_parameters(self, parameters: List[np.ndarray]) -> None:
+    def set_parameters(self, parameters: List[np.ndarray]):
         """
         Set the model parameters from a list of NumPy arrays.
 
         Args:
             parameters (List[np.ndarray]): Model parameters to set.
         """
-        # Set the model's coef_ and intercept_
-        self.model.coef_ = parameters[0]
-        if hasattr(self.model, 'fit_intercept') and self.model.fit_intercept is not None:
-            self.model.intercept_ = parameters[1]
+        if parameters:
+            self.model.n_estimators = int(parameters[0])
+            self.model.max_depth = int(parameters[1])
+            self.model.min_samples_split = int(parameters[2])
+            self.model.min_samples_leaf = int(parameters[3])
 
 
 if __name__ == "__main__":
     from flwr.client import start_client
 
-    # Initialize model parameters
-    model = set_initial_params(model, n_features=23, n_classes=2)
+    # It is for initial params
+    X_sample = train_loader.dataset.features
+    y_sample = train_loader.dataset.labels
+    model.fit(X_sample[:10], y_sample[:10])
 
     # Start Flower client
     client = FlowerClient(model, train_loader, test_loader, val_loader).to_client()
