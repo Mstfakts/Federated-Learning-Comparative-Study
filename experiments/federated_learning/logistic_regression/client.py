@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 import warnings
 from typing import List, Tuple, Dict, Any, Optional
 
@@ -34,6 +35,8 @@ train_loader, test_loader, val_loader, num_examples = load_data(
     batch_size=config['data']['batch_size'],
     scale=config['data']['scale'],
     smote=config['data']['smote'],
+    encode=config['data']['encode'],
+    pca=config['data']['pca']
 )
 
 
@@ -69,7 +72,7 @@ class FlowerClient(NumPyClient):
         Returns:
             Tuple[List[np.ndarray], int, dict]: Updated model parameters, number of samples, and metrics.
         """
-
+        time.sleep(5)
         # Set model parameters
         self.set_parameters(parameters)
 
@@ -163,7 +166,7 @@ if __name__ == "__main__":
     from flwr.client import start_client
 
     # Initialize model parameters
-    model = set_initial_params(model, n_features=23, n_classes=2)
+    model = set_initial_params(model, n_features=train_loader.dataset.features.shape[1], n_classes=2)
 
     # Start Flower client
     client = FlowerClient(model, train_loader, test_loader, val_loader).to_client()

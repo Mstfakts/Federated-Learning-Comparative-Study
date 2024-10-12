@@ -33,6 +33,8 @@ train_loader, test_loader, val_loader, num_examples = load_data(
     batch_size=config['data']['batch_size'],
     scale=config['data']['scale'],
     smote=config['data']['smote'],
+    encode=config['data']['encode'],
+    pca=config['data']['pca']
 )
 
 

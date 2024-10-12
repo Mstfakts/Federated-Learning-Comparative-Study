@@ -33,6 +33,8 @@ train_loader, test_loader, val_loader, num_examples = load_data(
     batch_size=config['data']['batch_size'],
     scale=config['data']['scale'],
     smote=config['data']['smote'],
+    encode=config['data']['encode'],
+    pca=config['data']['pca']
 )
 
 
@@ -200,6 +202,8 @@ if __name__ == "__main__":
     # We need to set coefs_ and intercepts_ before the first round
     X_sample = train_loader.dataset.features
     y_sample = train_loader.dataset.labels
+
+    config['model']['input_size'] = train_loader.dataset.features.shape[1]
 
     # Initialize the model with a single sample to set up the parameters
     model.partial_fit(X_sample[:1], y_sample[:1], classes=np.unique(y_sample))
