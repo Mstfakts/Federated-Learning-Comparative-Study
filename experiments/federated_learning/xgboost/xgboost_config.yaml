@@ -14,7 +14,11 @@ training:
 data:
   dataset_path: "/UCI_Credit_Card.csv"
   smote: false
-  scale: false
+  scale: true
+  rus: false
+  encode: true
+  pca:
+  ica:
   batch_size: 64
 aggregation:
   method: weighted

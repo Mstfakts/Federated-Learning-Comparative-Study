@@ -2,7 +2,7 @@ import os
 import re
 from collections import defaultdict
 
-os.environ["config_file"] = "random_forest"
+os.environ["config_file"] = "xgboost"
 from configs.config import config
 
 print(f"###### SELECTED RESULTS: {os.environ['config_file']} ######")
@@ -86,7 +86,7 @@ def parse_metrics(data_str):
 
 
 # Dosya içeriğini oku ve deneyleri ayır
-with open(config['result_file'], 'r') as file:
+with open("C:\\Users\B3LAB\PycharmProjects\FL-Benchmark\experiments\hyperparameter_tuning\\xgboost\\results.txt", 'r') as file:
     content = file.read()
 
 if os.environ["config_file"] == "xgboost":
@@ -107,12 +107,22 @@ else:
     veri5 = parse_metrics(experiments[4])
     veri6 = parse_metrics(experiments[5])
     veri7 = parse_metrics(experiments[6])
-    veri8 = parse_metrics(experiments[7])
-    veri9 = parse_metrics(experiments[8])
-    veri10 = parse_metrics(experiments[9])
+    # veri8 = parse_metrics(experiments[7])
+    # veri9 = parse_metrics(experiments[8])
+    # veri10 = parse_metrics(experiments[9])
 
     # Ortalamaları hesapla
-    averaged_metrics = compute_averages(veri1, veri2, veri3, veri4, veri5, veri6, veri7, veri8, veri9, veri10)
+    averaged_metrics = compute_averages(veri1,
+                                        veri2,
+                                        veri3,
+                                        veri4,
+                                        veri5,
+                                        veri6,
+                                        veri7,
+                                        # veri8,
+                                        # veri9,
+                                        # veri10
+                                        )
 
     # Sonuçları yazdırma
     print("Metriklerin Ortalamaları:")

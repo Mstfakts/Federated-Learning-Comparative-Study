@@ -22,9 +22,8 @@ def run_in_new_terminal(command):
 
 
 if __name__ == "__main__":
-    for _ in range(1):
+    for _ in range(7):
         set_seed(random.randint(1, 1000))
-
         commands = [
             ["python", f"./server.py"],
             ["python", f"./client.py", "--partition-id", "0"],
@@ -37,4 +36,4 @@ if __name__ == "__main__":
         for command in commands:
             run_in_new_terminal(command)
 
-        time.sleep(6)
+        time.sleep(200)  # 200 seconds is enough for MLP

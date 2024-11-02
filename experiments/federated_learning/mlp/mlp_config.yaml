@@ -1,5 +1,5 @@
 client: 5
-round: 10
+round: 8
 model:
   input_size: 23
   hidden_layer_sizes:
@@ -13,10 +13,12 @@ data:
   dataset_path: "/UCI_Credit_Card.csv"
   smote: false
   scale: true
+  rus: true
   encode: true
-  pca: true
+  pca:
+  ica:
   batch_size: 64
 aggregation:
-  method: weighted
+  method: f1
 server:
   address: "127.0.0.1:8080"

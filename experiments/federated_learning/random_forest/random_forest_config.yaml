@@ -16,11 +16,13 @@ training:
 data:
   dataset_path: "/UCI_Credit_Card.csv"
   smote: false
+  rus: true
   scale: true
   encode: true
-  pca: true
+  pca:
+  ica:
   batch_size: 64
 aggregation:
-  method: weighted
+  method: f1
 server:
   address: "127.0.0.1:8080"

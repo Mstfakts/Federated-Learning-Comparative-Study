@@ -4,6 +4,7 @@ import warnings
 from typing import List, Tuple, Dict, Any, Optional
 
 os.environ["config_file"] = "random_forest"
+import time
 import numpy as np
 from flwr.client import NumPyClient
 from sklearn.metrics import classification_report
@@ -33,8 +34,10 @@ train_loader, test_loader, val_loader, num_examples = load_data(
     batch_size=config['data']['batch_size'],
     scale=config['data']['scale'],
     smote=config['data']['smote'],
+    rus=config['data']['rus'],
     encode=config['data']['encode'],
-    pca=config['data']['pca']
+    pca=config['data']['pca'],
+    ica=config['data']['ica']
 )
 
 
@@ -69,7 +72,7 @@ class FlowerClient(NumPyClient):
         Returns:
             Tuple[List[np.ndarray], int, dict]: Updated model parameters, number of samples, and metrics.
         """
-
+        #time.sleep(1)
         # Set model parameters
         self.set_parameters(parameters)
 

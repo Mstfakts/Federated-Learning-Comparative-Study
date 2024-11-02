@@ -23,11 +23,10 @@ def run_in_new_terminal(command):
 
 if __name__ == "__main__":
 
-    for _ in range(2):
+    for _ in range(7):
         set_seed(random.randint(1, 1000))
 
         os.system(f"start cmd /k {' '.join(['python', './server.py'])}")
-        time.sleep(2)
         commands = [
             ["python", f"./client.py", "--partition-id", "0"],
             ["python", f"./client.py", "--partition-id", "1"],
@@ -39,4 +38,4 @@ if __name__ == "__main__":
         for command in commands:
             run_in_new_terminal(command)
 
-        time.sleep(60)
+        time.sleep(120)

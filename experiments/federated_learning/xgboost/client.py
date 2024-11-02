@@ -4,6 +4,7 @@ from logging import INFO
 from typing import Dict
 
 os.environ["config_file"] = "xgboost"
+import time
 import flwr as fl
 import xgboost as xgb
 from flwr.client import start_client
@@ -46,15 +47,19 @@ class XGBoostClient(fl.client.Client):
             self,
             train_dmatrix: xgb.DMatrix,
             valid_dmatrix: xgb.DMatrix,
+            test_dmatrix: xgb.DMatrix,
             num_train: int,
             num_val: int,
+            num_test: int,
             num_local_round: int,
             params: Dict,
     ) -> None:
         self.train_dmatrix = train_dmatrix
         self.valid_dmatrix = valid_dmatrix
+        self.test_dmatrix = test_dmatrix
         self.num_train = num_train
         self.num_val = num_val
+        self.num_test = num_test
         self.num_local_round = num_local_round
         self.params = params
 
@@ -82,6 +87,7 @@ class XGBoostClient(fl.client.Client):
         return bst
 
     def fit(self, ins: FitIns) -> FitRes:
+        time.sleep(2)
         global_round = int(ins.config["global_round"])
         if global_round == 1:
             # First round local training
@@ -125,7 +131,7 @@ class XGBoostClient(fl.client.Client):
 
         # Run evaluation
         eval_results = bst.eval_set(
-            evals=[(self.valid_dmatrix, "valid")],
+            evals=[(self.test_dmatrix, "test")],
             iteration=bst.num_boosted_rounds() - 1,
         )
         auc = round(float(eval_results.split("\t")[1].split(":")[1]), 4)
@@ -148,7 +154,7 @@ class XGBoostClient(fl.client.Client):
                 message="OK",
             ),
             loss=0.0,
-            num_examples=self.num_val,
+            num_examples=self.num_test,
             metrics=report,
         )
 
@@ -162,6 +168,10 @@ def main() -> None:
         batch_size=config['data']['batch_size'],
         scale=config['data']['scale'],
         smote=config['data']['smote'],
+        rus=config['data']['rus'],
+        encode=config['data']['encode'],
+        pca=config['data']['pca'],
+        ica=config['data']['ica']
     )
 
     params = {
@@ -174,12 +184,14 @@ def main() -> None:
     }
 
     client = XGBoostClient(
-        train_data,
-        valid_data,
-        num_train,
-        num_val,
-        config['round'],
-        params,
+        train_dmatrix=train_data,
+        valid_dmatrix=valid_data,
+        test_dmatrix=test_data,
+        num_train=num_train,
+        num_val=num_val,
+        num_test=num_test,
+        num_local_round=config['round'],
+        params=params,
     )
 
     start_client(

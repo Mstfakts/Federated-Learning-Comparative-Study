@@ -2,7 +2,7 @@ import logging
 import os
 import random
 from typing import Dict, Tuple, Union
-from sklearn.decomposition import PCA
+
 import pandas as pd
 import torch
 import xgboost as xgb
@@ -10,6 +10,9 @@ from datasets import DatasetDict, Dataset as HFDataset
 from flwr.common.logger import log
 from flwr_datasets.partitioner import DirichletPartitioner, IidPartitioner
 from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from sklearn.decomposition import FastICA
+from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import StandardScaler
@@ -29,7 +32,7 @@ class DataFrameDataset(Dataset):
 
     def __init__(self, data_frame: pd.DataFrame):
         self.data = data_frame.reset_index(drop=True)
-        if config['data']['pca']:
+        if config['data']['pca'] or config['data']['ica']:
             self.features = self.data.drop(columns=['def_pay'])
         else:
             self.features = self.data.drop(columns=['def_pay', 'index']).values
@@ -83,8 +86,10 @@ def data_preprocess(data: pd.DataFrame, encode: bool = False) -> pd.DataFrame:
     return data
 
 
-def split_data(data: pd.DataFrame, smote: bool = False, scale: bool = False, pca: bool = False) -> Tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def split_data(data: pd.DataFrame, smote: bool = False, scale: bool = False, pca: bool = False, ica: bool = False,
+               rus: bool = False) -> \
+        Tuple[
+            pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Split the data into training, validation, and test sets.
     Optionally apply SMOTE to the training data to address class imbalance.
@@ -94,13 +99,21 @@ def split_data(data: pd.DataFrame, smote: bool = False, scale: bool = False, pca
         smote (bool): Whether to apply SMOTE to the training data.
         scale (bool): Whether to apply standard scaling to the features.
         pca (bool): Whether to apply PCA to the features.
+        ica (bool): Whether to apply ICA to the features.
+        rus (bool): Whether to apply RUS to the training data.
 
     Returns:
         Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: The training, test, and validation datasets.
     """
+    assert not (pca and ica), "Apply only PCA or ICA at a time."
+    assert not (rus and smote), "Apply only RUS or SMOTE at a time."
+
     random_state = random.randint(1, 1000)
     train_data, temp_data = train_test_split(data, test_size=0.3, random_state=random_state)
     test_data, val_data = train_test_split(temp_data, test_size=1 / 3, random_state=random_state)
+
+    test_data = test_data[train_data.columns]
+    val_data = val_data[train_data.columns]
 
     if scale:
         # Apply standard scaling to the features
@@ -126,6 +139,9 @@ def split_data(data: pd.DataFrame, smote: bool = False, scale: bool = False, pca
         test_data[feature_columns] = scaled_test_data
         val_data[feature_columns] = scaled_val_data
 
+        test_data = test_data[train_data.columns]
+        val_data = val_data[train_data.columns]
+
     if smote:
         # Apply SMOTE to the training data
         smote_processor = SMOTE(random_state=random_state)
@@ -141,8 +157,32 @@ def split_data(data: pd.DataFrame, smote: bool = False, scale: bool = False, pca
 
         print(f"Class distribution after applying SMOTE: {train_data['def_pay'].value_counts()}")
 
+        test_data = test_data[train_data.columns]
+        val_data = val_data[train_data.columns]
+
+    if rus:
+        rus = RandomUnderSampler(random_state=random_state)
+        X_train = train_data.drop(columns=['def_pay', 'index'])
+        y_train = train_data['def_pay']
+        X_resampled, y_resampled = rus.fit_resample(X_train, y_train)
+
+        # Reconstruct the training DataFrame
+        train_data = pd.DataFrame(X_resampled, columns=X_train.columns)
+        train_data['def_pay'] = y_resampled
+        train_data = train_data.reset_index(drop=True)
+        train_data['index'] = train_data.index
+
+        print(f"Class distribution after applying RUS: {train_data['def_pay'].value_counts()}")
+
+        test_data = test_data[train_data.columns]
+        val_data = val_data[train_data.columns]
+
     if pca:
-        pca_model = PCA(n_components=0.95)
+        log(
+            logging.WARNING,
+            f"\nPCA: {pca}"
+        )
+        pca_model = PCA(n_components=pca)
 
         X_train = train_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
         y_train = train_data['def_pay'].reset_index(drop=True)
@@ -164,13 +204,46 @@ def split_data(data: pd.DataFrame, smote: bool = False, scale: bool = False, pca
             f"\nAfter PCA shape is: {train_data.shape[1]}"
         )
 
+        test_data = test_data[train_data.columns]
+        val_data = val_data[train_data.columns]
+
+    if ica:
+        log(
+            logging.WARNING,
+            f"\nPCA: {ica}"
+        )
+        ica_model = FastICA(n_components=ica)
+
+        X_train = train_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
+        y_train = train_data['def_pay'].reset_index(drop=True)
+        train_data = pd.DataFrame(ica_model.fit_transform(X_train))
+        train_data['def_pay'] = y_train
+
+        X_test = test_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
+        y_test = test_data['def_pay'].reset_index(drop=True)
+        test_data = pd.DataFrame(ica_model.transform(X_test))
+        test_data['def_pay'] = y_test
+
+        X_val = val_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
+        y_val = val_data['def_pay'].reset_index(drop=True)
+        val_data = pd.DataFrame(ica_model.transform(X_val))
+        val_data['def_pay'] = y_val
+
+        log(
+            logging.WARNING,
+            f"\nAfter ICA shape is: {train_data.shape[1]}"
+        )
+
+        test_data = test_data[train_data.columns]
+        val_data = val_data[train_data.columns]
+
     return train_data, test_data, val_data
 
 
 def transform_dataset_to_dmatrix(data: Union[Dataset, DatasetDict]) -> xgb.core.DMatrix:
     """Transform dataset to DMatrix format for xgboost."""
-    x = data.iloc[:, :-2]
     y = data["def_pay"]
+    x = data.drop(columns=['def_pay', 'index'])
     new_data = xgb.DMatrix(x, label=y)
     return new_data
 
@@ -180,9 +253,11 @@ def load_data(
         n_partitions: int,
         batch_size: int = 32,
         smote: bool = False,
+        rus: bool = False,
         scale: bool = False,
         encode: bool = False,
-        pca: bool = False
+        pca: bool = False,
+        ica: bool = False
 ) -> Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int]]:
     """
     Load the dataset and partition it for federated learning.
@@ -193,9 +268,11 @@ def load_data(
         n_partitions (int): Total number of partitions (clients).
         batch_size (int): Batch size for DataLoader.
         smote (bool): Whether to apply SMOTE to the training data.
+        rus (bool): Whether to apply RUS to the training data.
         scale (bool): Whether to scale the features.
         encode (bool): Whether to encode the features.
         pca (bool): Whether to PCA the features.
+        ica (bool): Whether to ICA the features.
 
     Returns:
         Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int]]: DataLoaders and dataset sizes.
@@ -215,7 +292,11 @@ def load_data(
     client_data = partitioner.load_partition(partition_id).to_pandas()
 
     # Split the data
-    train_data, test_data, val_data = split_data(client_data, scale=scale, smote=smote, pca=pca)
+    train_data, test_data, val_data = split_data(client_data, scale=scale, smote=smote, pca=pca, ica=ica, rus=rus)
+
+    # train_data = train_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
+    # test_data = test_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
+    # val_data = val_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
 
     num_train = len(train_data)
     num_test = len(test_data)
@@ -251,8 +332,12 @@ def load_xgboost_data(
         partition_id: int,
         n_partitions: int,
         batch_size: int = 32,
+        rus: bool = False,
         smote: bool = False,
-        scale: bool = False
+        scale: bool = False,
+        encode: bool = False,
+        pca: bool = False,
+        ica: bool = False
 ) -> [xgb.core.DMatrix, xgb.core.DMatrix, xgb.core.DMatrix, int, int, int]:
     """
     Load the dataset and partition it for federated learning XGBoost.
@@ -264,13 +349,16 @@ def load_xgboost_data(
         batch_size (int): Batch size for DataLoader.
         smote (bool): Whether to apply SMOTE to the training data.
         scale (bool): Whether to scale the features.
+        encode (bool): Whether to encode the features.
+        pca (bool): Whether to PCA the features.
+        ica (bool): Whether to ICA the features.
 
     Returns:
         Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int]]: DataLoaders and dataset sizes.
     """
     # Load and preprocess the data
     data = pd.read_csv(current_file_directory + config['data']['dataset_path'])
-    data = data_preprocess(data, scale=scale)
+    data = data_preprocess(data, encode=encode)
 
     # Partition data
     partitioner = IidPartitioner(num_partitions=n_partitions)
@@ -278,7 +366,11 @@ def load_xgboost_data(
     client_data = partitioner.load_partition(partition_id).to_pandas()
 
     # Split the data
-    train_data, test_data, val_data = split_data(client_data, smote=smote)
+    train_data, test_data, val_data = split_data(client_data, scale=scale, smote=smote, pca=pca, ica=ica, rus=rus)
+
+    train_data = train_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
+    test_data = test_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
+    val_data = val_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
 
     num_train = len(train_data)
     num_test = len(test_data)

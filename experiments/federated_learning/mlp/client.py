@@ -8,7 +8,7 @@ import numpy as np
 from flwr.client import NumPyClient
 from sklearn.metrics import classification_report
 from sklearn.metrics import log_loss
-
+import time
 from configs.config import config
 from data.dataset import load_data
 from experiments.federated_learning.mlp.model import model
@@ -33,8 +33,10 @@ train_loader, test_loader, val_loader, num_examples = load_data(
     batch_size=config['data']['batch_size'],
     scale=config['data']['scale'],
     smote=config['data']['smote'],
+    rus=config['data']['rus'],
     encode=config['data']['encode'],
-    pca=config['data']['pca']
+    pca=config['data']['pca'],
+    ica=config['data']['ica']
 )
 
 
@@ -79,6 +81,7 @@ class FlowerClient(NumPyClient):
         """
 
         # Set model parameters
+        #time.sleep(2)
         self.set_parameters(parameters)
 
         # Suppress convergence warnings for cleaner output
