@@ -1,0 +1,26 @@
+client: 5
+round: 10
+model:
+  objective: "binary:logistic"
+  learning_rate: 0.1
+  max_depth: 3
+  eval_metric:
+  num_parallel_tree:
+  tree_method: "hist"
+training:
+  batch_size: 64
+  learning_rate: 0.01
+  max_iter: 1
+data:
+  dataset_path: "/UCI_Credit_Card.csv"
+  smote: false
+  scale: true
+  rus: false
+  encode: true
+  pca:
+  ica:
+  batch_size: 64
+aggregation:
+  method: weighted
+server:
+  address: "127.0.0.1:8080"

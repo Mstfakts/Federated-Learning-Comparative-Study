@@ -1,0 +1,28 @@
+client: 5
+round: 10
+model:
+  class_weight:
+  criterion: 'entropy'
+  n_estimators: 100
+  max_depth: 10
+  min_samples_split: 5
+  min_samples_leaf: 1
+  max_features: 'sqrt'
+  bootstrap: true
+training:
+  batch_size: 64
+  learning_rate: 0.01
+  max_iter: 1
+data:
+  dataset_path: "/UCI_Credit_Card.csv"
+  smote: false
+  rus: true
+  scale: true
+  encode: true
+  pca:
+  ica:
+  batch_size: 64
+aggregation:
+  method: f1
+server:
+  address: "127.0.0.1:8080"

@@ -1,20 +1,25 @@
 client: 5
 round: 10
 model:
-  input_size: 23
-  hidden_layer_sizes:
-    - 100
-  output_size: 1
+  C: 0.01
+  max_iter: 5000
+  penalty: l1
+  class_weight:
+  solver: liblinear
 training:
   batch_size: 64
   learning_rate: 0.01
   max_iter: 1
 data:
   dataset_path: "/UCI_Credit_Card.csv"
-  smote: true
+  smote: false
+  rus: true
   scale: true
+  encode: true
+  pca:
+  ica:
   batch_size: 64
-experiment:
-  folder: "experiments/federated_learning/mlp"
+aggregation:
+  method: weighted
 server:
   address: "127.0.0.1:8080"
