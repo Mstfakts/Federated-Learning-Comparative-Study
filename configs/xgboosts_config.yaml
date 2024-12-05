@@ -1,28 +1,31 @@
 client: 5
+
 round: 10
-model:
-  class_weight:
-  criterion: 'entropy'
-  n_estimators: 100
-  max_depth: 10
-  min_samples_split: 5
-  min_samples_leaf: 1
-  max_features: 'sqrt'
-  bootstrap: true
+
 training:
   batch_size: 64
   learning_rate: 0.01
   max_iter: 1
+
 data:
   dataset_path: "/UCI_Credit_Card.csv"
   smote: false
-  rus: true
+  rus: false
   scale: true
   encode: true
   pca:
-  ica:
   batch_size: 64
+
 aggregation:
-  method: f1
+  method: FedAvg
+
 server:
   address: "127.0.0.1:8080"
+
+model:
+  objective: "binary:logistic"
+  learning_rate: 0.1
+  max_depth: 3
+  eval_metric:
+  num_parallel_tree:
+  tree_method: "hist"

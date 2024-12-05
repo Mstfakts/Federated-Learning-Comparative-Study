@@ -1,24 +1,28 @@
 client: 5
-round: 8
-model:
-  input_size: 23
-  hidden_layer_sizes:
-    - 100
-  output_size: 1
+
+round: 10
+
 training:
   batch_size: 64
   learning_rate: 0.01
   max_iter: 1
+
 data:
   dataset_path: "/UCI_Credit_Card.csv"
   smote: false
+  rus: false
   scale: true
-  rus: true
   encode: true
   pca:
-  ica:
   batch_size: 64
+
 aggregation:
-  method: f1
+  method: FedAvg
+
 server:
   address: "127.0.0.1:8080"
+
+model:
+  C: 10
+  class_weight: 'balanced'
+  max_iter: 1000
