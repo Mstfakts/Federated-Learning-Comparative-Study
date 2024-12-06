@@ -39,5 +39,8 @@ def get_config(config_name=None):
     Returns:
         dict: Loaded configuration data.
     """
-    config_name = config_name if config_name else os.environ["config_file"]
-    return Config(config_name).config
+    config_name = config_name if config_name else os.environ.get("config_file", None)
+    if config_name:
+        return Config(config_name).config
+    else:
+        return None

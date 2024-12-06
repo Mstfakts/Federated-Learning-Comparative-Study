@@ -1,323 +1,166 @@
 import logging
 import os
 import random
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple
 
 import pandas as pd
 import torch
 import xgboost as xgb
-from datasets import DatasetDict, Dataset as HFDataset
+from datasets import Dataset as HFDataset
 from flwr.common.logger import log
-from flwr_datasets.partitioner import DirichletPartitioner, IidPartitioner
-from imblearn.over_sampling import SMOTE
-from imblearn.under_sampling import RandomUnderSampler
-from sklearn.decomposition import FastICA
-from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.preprocessing import StandardScaler
+from flwr_datasets.partitioner import DirichletPartitioner
 from torch.utils.data import Dataset, DataLoader
 
-from configs.config import config
+from configs.config import get_config
+from data.data_process import (
+    split_data,
+    apply_smote,
+    apply_rus,
+    apply_pca,
+    apply_scaling,
+    apply_kbest,
+    apply_encoding,
+    data_cleaning,
+    transform_dataset_to_dmatrix,
+)
+
+# Load configuration
+config = get_config()
 
 # Set up the data root directory
-current_file_directory = os.path.dirname(os.path.abspath(__file__))
+CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 # PyTorch Dataset sınıfı
 class DataFrameDataset(Dataset):
     """
-    Custom PyTorch Dataset class for loading data from a DataFrame.
+    Custom PyTorch Dataset class for loading features and labels from a DataFrame.
+
+    Args:
+        data_frame (pd.DataFrame): The DataFrame containing the data.
+        use_pca (bool): Whether PCA was applied or not. If True, 'index' column may be omitted.
     """
 
-    def __init__(self, data_frame: pd.DataFrame):
+    def __init__(self, data_frame: pd.DataFrame, use_pca: bool = False):
         self.data = data_frame.reset_index(drop=True)
-        if config['data']['pca'] or config['data']['ica']:
-            self.features = self.data.drop(columns=['def_pay'])
-        else:
-            self.features = self.data.drop(columns=['def_pay', 'index']).values
         self.labels = self.data['def_pay'].values
-        self.indices = self.data.index.values
 
-    def __len__(self):
+        # Determine which columns to drop
+        drop_columns = ['def_pay']
+        if not use_pca:
+            # If PCA is not used, ensure 'index' column is dropped if it exists
+            if 'index' in self.data.columns:
+                drop_columns.append('index')
+
+        self.features = self.data.drop(columns=drop_columns).values
+
+    def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         features = torch.tensor(self.features[idx], dtype=torch.float32)
         label = torch.tensor(self.labels[idx], dtype=torch.float32)
         return features, label
 
 
-def data_preprocess(data: pd.DataFrame, encode: bool = False) -> pd.DataFrame:
-    """
-    Preprocess the data by renaming columns, dropping unnecessary columns,
-    adding an index column, and optionally scaling the features.
-
-    Args:
-        data (pd.DataFrame): The raw data.
-
-    Returns:
-        pd.DataFrame: The preprocessed data.
-    """
-
-    # Rename columns for consistency
-    data = data.rename(columns={
-        'default.payment.next.month': 'def_pay',
-        'PAY_0': 'PAY_1'})
-
-    # Drop the 'ID' column as it's not needed and add index column
-    data = data.drop(['ID'], axis=1)
-    data['index'] = data.index
-
-    if encode:
-        categorical_columns = ['SEX', 'EDUCATION', 'MARRIAGE']
-
-        encoder = OneHotEncoder(sparse_output=False)
-
-        X_categorical = data[categorical_columns]
-        X_encoded = encoder.fit_transform(X_categorical)
-
-        encoded_feature_names = encoder.get_feature_names_out(categorical_columns)
-        df_encoded = pd.DataFrame(X_encoded, columns=encoded_feature_names)
-        df_numeric = data.drop(columns=categorical_columns)
-        data = pd.concat([df_numeric.reset_index(drop=True),
-                          df_encoded.reset_index(drop=True)], axis=1)
-
-    return data
-
-
-def split_data(data: pd.DataFrame, smote: bool = False, scale: bool = False, pca: bool = False, ica: bool = False,
-               rus: bool = False) -> \
-        Tuple[
-            pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Split the data into training, validation, and test sets.
-    Optionally apply SMOTE to the training data to address class imbalance.
-
-    Args:
-        data (pd.DataFrame): The preprocessed data.
-        smote (bool): Whether to apply SMOTE to the training data.
-        scale (bool): Whether to apply standard scaling to the features.
-        pca (bool): Whether to apply PCA to the features.
-        ica (bool): Whether to apply ICA to the features.
-        rus (bool): Whether to apply RUS to the training data.
-
-    Returns:
-        Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]: The training, test, and validation datasets.
-    """
-    assert not (pca and ica), "Apply only PCA or ICA at a time."
-    assert not (rus and smote), "Apply only RUS or SMOTE at a time."
-
-    random_state = random.randint(1, 1000)
-    train_data, temp_data = train_test_split(data, test_size=0.3, random_state=random_state)
-    test_data, val_data = train_test_split(temp_data, test_size=1 / 3, random_state=random_state)
-
-    test_data = test_data[train_data.columns]
-    val_data = val_data[train_data.columns]
-
-    if scale:
-        # Apply standard scaling to the features
-        cols_to_exclude = train_data.columns[train_data.columns.str.contains('SEX|EDUCATION|MARRIAGE')].tolist()
-        cols_to_exclude.extend(['def_pay', 'index'])
-        feature_columns = [col for col in train_data.columns if col not in cols_to_exclude]
-
-        scaler = StandardScaler()
-
-        # Fıt and transform on Training data
-        scaled_training_data = scaler.fit_transform(train_data[feature_columns])
-        scaled_training_data = pd.DataFrame(scaled_training_data, columns=feature_columns, index=train_data.index)
-
-        # Only transform on Test data
-        scaled_test_data = scaler.transform(test_data[feature_columns])
-        scaled_test_data = pd.DataFrame(scaled_test_data, columns=feature_columns, index=test_data.index)
-
-        # Only transform on Validation data
-        scaled_val_data = scaler.transform(val_data[feature_columns])
-        scaled_val_data = pd.DataFrame(scaled_val_data, columns=feature_columns, index=val_data.index)
-
-        train_data[feature_columns] = scaled_training_data
-        test_data[feature_columns] = scaled_test_data
-        val_data[feature_columns] = scaled_val_data
-
-        test_data = test_data[train_data.columns]
-        val_data = val_data[train_data.columns]
-
-    if smote:
-        # Apply SMOTE to the training data
-        smote_processor = SMOTE(random_state=random_state)
-        X_train = train_data.drop(columns=['def_pay', 'index'])
-        y_train = train_data['def_pay']
-        X_resampled, y_resampled = smote_processor.fit_resample(X_train, y_train)
-
-        # Reconstruct the training DataFrame
-        train_data = pd.DataFrame(X_resampled, columns=X_train.columns)
-        train_data['def_pay'] = y_resampled
-        train_data = train_data.reset_index(drop=True)
-        train_data['index'] = train_data.index
-
-        print(f"Class distribution after applying SMOTE: {train_data['def_pay'].value_counts()}")
-
-        test_data = test_data[train_data.columns]
-        val_data = val_data[train_data.columns]
-
-    if rus:
-        rus = RandomUnderSampler(random_state=random_state)
-        X_train = train_data.drop(columns=['def_pay', 'index'])
-        y_train = train_data['def_pay']
-        X_resampled, y_resampled = rus.fit_resample(X_train, y_train)
-
-        # Reconstruct the training DataFrame
-        train_data = pd.DataFrame(X_resampled, columns=X_train.columns)
-        train_data['def_pay'] = y_resampled
-        train_data = train_data.reset_index(drop=True)
-        train_data['index'] = train_data.index
-
-        print(f"Class distribution after applying RUS: {train_data['def_pay'].value_counts()}")
-
-        test_data = test_data[train_data.columns]
-        val_data = val_data[train_data.columns]
-
-    if pca:
-        log(
-            logging.WARNING,
-            f"\nPCA: {pca}"
-        )
-        pca_model = PCA(n_components=pca)
-
-        X_train = train_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-        y_train = train_data['def_pay'].reset_index(drop=True)
-        train_data = pd.DataFrame(pca_model.fit_transform(X_train))
-        train_data['def_pay'] = y_train
-
-        X_test = test_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-        y_test = test_data['def_pay'].reset_index(drop=True)
-        test_data = pd.DataFrame(pca_model.transform(X_test))
-        test_data['def_pay'] = y_test
-
-        X_val = val_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-        y_val = val_data['def_pay'].reset_index(drop=True)
-        val_data = pd.DataFrame(pca_model.transform(X_val))
-        val_data['def_pay'] = y_val
-
-        log(
-            logging.WARNING,
-            f"\nAfter PCA shape is: {train_data.shape[1]}"
-        )
-
-        test_data = test_data[train_data.columns]
-        val_data = val_data[train_data.columns]
-
-    if ica:
-        log(
-            logging.WARNING,
-            f"\nPCA: {ica}"
-        )
-        ica_model = FastICA(n_components=ica)
-
-        X_train = train_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-        y_train = train_data['def_pay'].reset_index(drop=True)
-        train_data = pd.DataFrame(ica_model.fit_transform(X_train))
-        train_data['def_pay'] = y_train
-
-        X_test = test_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-        y_test = test_data['def_pay'].reset_index(drop=True)
-        test_data = pd.DataFrame(ica_model.transform(X_test))
-        test_data['def_pay'] = y_test
-
-        X_val = val_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-        y_val = val_data['def_pay'].reset_index(drop=True)
-        val_data = pd.DataFrame(ica_model.transform(X_val))
-        val_data['def_pay'] = y_val
-
-        log(
-            logging.WARNING,
-            f"\nAfter ICA shape is: {train_data.shape[1]}"
-        )
-
-        test_data = test_data[train_data.columns]
-        val_data = val_data[train_data.columns]
-
-    return train_data, test_data, val_data
-
-
-def transform_dataset_to_dmatrix(data: Union[Dataset, DatasetDict]) -> xgb.core.DMatrix:
-    """Transform dataset to DMatrix format for xgboost."""
-    y = data["def_pay"]
-    x = data.drop(columns=['def_pay', 'index'])
-    new_data = xgb.DMatrix(x, label=y)
-    return new_data
-
-
-def load_data(
+def load_dataloader(
         partition_id: int,
         n_partitions: int,
         batch_size: int = 32,
-        smote: bool = False,
-        rus: bool = False,
+        use_smote: bool = False,
+        use_rus: bool = False,
         scale: bool = False,
         encode: bool = False,
-        pca: bool = False,
-        ica: bool = False
+        n_pca_components: int = 0,
+        kbest: bool = False
 ) -> Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int]]:
     """
-    Load the dataset and partition it for federated learning.
-    Returns DataLoaders for training, validation, and test sets.
+    Load and partition the dataset for federated learning (PyTorch).
+
+    This function:
+      - Loads data from a CSV file.
+      - Cleans and optionally encodes the data.
+      - Partitions the data using a Dirichlet partitioner.
+      - Splits the data into train/validation/test sets.
+      - Optionally applies scaling, SMOTE, RUS, and PCA transformations.
+      - Creates PyTorch Datasets and DataLoaders from the processed data.
 
     Args:
-        partition_id (int): The partition ID for the client.
-        n_partitions (int): Total number of partitions (clients).
+        partition_id (int): The partition (client) ID.
+        n_partitions (int): The total number of partitions (clients).
         batch_size (int): Batch size for DataLoader.
-        smote (bool): Whether to apply SMOTE to the training data.
-        rus (bool): Whether to apply RUS to the training data.
-        scale (bool): Whether to scale the features.
-        encode (bool): Whether to encode the features.
-        pca (bool): Whether to PCA the features.
-        ica (bool): Whether to ICA the features.
+        use_smote (bool): Apply SMOTE to the training data if True.
+        use_rus (bool): Apply Random Under Sampling to the training data if True.
+        scale (bool): Scale the features if True.
+        encode (bool): Encode categorical features if True.
+        n_pca_components (int): Number of PCA components to use. 0 means no PCA.
+        kbest (bool): Apply kBest feature selection if True.
 
     Returns:
-        Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int]]: DataLoaders and dataset sizes.
+        Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int]]:
+            trainloader: DataLoader for the training set.
+            testloader: DataLoader for the test set.
+            valloader: DataLoader for the validation set.
+            dataset_sizes: Dictionary containing sizes of train, test, and val sets.
     """
+    # Check if desired data engineering techniques are valid
+    validate_data_args(use_smote, use_rus, n_pca_components)
+
+    random_state = random.randint(1, 1000)
 
     # Load and preprocess the data
-    data = pd.read_csv(current_file_directory + config['data']['dataset_path'])
-    data = data_preprocess(data, encode=encode)
+    data_path = os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path'])
+    data = pd.read_csv(data_path)
+    data = data_cleaning(data)
+
+    if encode:
+        data = apply_encoding(data)
+        log(logging.INFO, f" --> Encoding applied.")
 
     # Partition the training data for federated learning
-    partitioner = DirichletPartitioner(num_partitions=n_partitions,
-                                       partition_by="def_pay",
-                                       alpha=10,
-                                       min_partition_size=1000,
-                                       self_balancing=True)
+    partitioner = DirichletPartitioner(
+        num_partitions=n_partitions,
+        partition_by="def_pay",
+        alpha=10,
+        min_partition_size=1000,
+        self_balancing=True)
     partitioner.dataset = HFDataset.from_pandas(data, preserve_index=False)
     client_data = partitioner.load_partition(partition_id).to_pandas()
 
     # Split the data
-    train_data, test_data, val_data = split_data(client_data, scale=scale, smote=smote, pca=pca, ica=ica, rus=rus)
+    train_data, test_data, val_data = split_data(client_data, random_state)
 
-    # train_data = train_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
-    # test_data = test_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
-    # val_data = val_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
+    train_data, test_data, val_data = apply_transformations(
+        train_data,
+        test_data,
+        val_data,
+        random_state,
+        **{
+            "use_smote": use_smote,
+            "use_rus": use_rus,
+            "scale": scale,
+            "encode": encode,
+            "n_pca_components": n_pca_components,
+            "kbest": kbest
+        }
+    )
 
-    num_train = len(train_data)
-    num_test = len(test_data)
-    num_val = len(val_data)
+    num_train, num_test, num_val = len(train_data), len(test_data), len(val_data)
 
     # Create custom datasets
-    trainset = DataFrameDataset(train_data)
-    testset = DataFrameDataset(test_data)
-    valset = DataFrameDataset(val_data)
+    use_pca = True if n_pca_components > 0 else False
+    trainset = DataFrameDataset(train_data, use_pca)
+    testset = DataFrameDataset(test_data, use_pca)
+    valset = DataFrameDataset(val_data, use_pca)
 
     # Create DataLoaders
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
     testloader = DataLoader(testset, batch_size=batch_size, shuffle=False)
     valloader = DataLoader(valset, batch_size=batch_size, shuffle=False)
 
-    log(
-        logging.WARNING,
-        f"\nClient ID: {partition_id}/{n_partitions} "
-        f"\nData split: (Train - Test - Val) {num_train} - {num_test} - {num_val} "
-        f"\nClass distribution: \n{train_data['def_pay'].value_counts()} "
-    )
+    log(logging.INFO, f"Client ID: {partition_id}/{n_partitions}")
+    log(logging.INFO, f"Data split: (Train: {num_train} - Test: {num_test} - Val: {num_val})")
+    log(logging.INFO, f"Class distribution: {train_data['def_pay'].value_counts().to_dict()}")
 
     dataset_sizes = {
         "trainset": num_train,
@@ -328,63 +171,140 @@ def load_data(
     return trainloader, testloader, valloader, dataset_sizes
 
 
-def load_xgboost_data(
+def load_dmatrix(
         partition_id: int,
         n_partitions: int,
         batch_size: int = 32,
-        rus: bool = False,
-        smote: bool = False,
+        use_smote: bool = False,
+        use_rus: bool = False,
         scale: bool = False,
         encode: bool = False,
-        pca: bool = False,
-        ica: bool = False
+        n_pca_components: int = 0,
+        kbest: bool = False
 ) -> [xgb.core.DMatrix, xgb.core.DMatrix, xgb.core.DMatrix, int, int, int]:
     """
-    Load the dataset and partition it for federated learning XGBoost.
-    Returns DataLoaDMatrixders for training, validation, and test sets. Also the length of them
+    Load and partition the dataset for federated learning (XGBoost).
+
+    This function:
+      - Loads data from a CSV file.
+      - Cleans and optionally encodes the data.
+      - Partitions the data using an IID partitioner.
+      - Splits the data into train/validation/test sets.
+      - Optionally applies scaling, SMOTE, RUS, PCA, and kBest feature selection.
+      - Converts the data into XGBoost DMatrix format.
 
     Args:
-        partition_id (int): The partition ID for the client.
-        n_partitions (int): Total number of partitions (clients).
-        batch_size (int): Batch size for DataLoader.
-        smote (bool): Whether to apply SMOTE to the training data.
-        scale (bool): Whether to scale the features.
-        encode (bool): Whether to encode the features.
-        pca (bool): Whether to PCA the features.
-        ica (bool): Whether to ICA the features.
+        partition_id (int): The partition (client) ID.
+        n_partitions (int): The total number of partitions (clients).
+        batch_size (int): Batch size for DataLoader (not directly used for DMatrix).
+        use_smote (bool): Apply SMOTE to the training data if True.
+        use_rus (bool): Apply Random Under Sampling if True.
+        scale (bool): Scale the features if True.
+        encode (bool): Encode categorical features if True.
+        n_pca_components (int): Number of PCA components to use. 0 means no PCA.
+        kbest (bool): Apply kBest feature selection if True.
 
     Returns:
-        Tuple[DataLoader, DataLoader, DataLoader, Dict[str, int]]: DataLoaders and dataset sizes.
+        Tuple[xgb.core.DMatrix, xgb.core.DMatrix, xgb.core.DMatrix, int, int, int]:
+            train_dmatrix: DMatrix for training set.
+            test_dmatrix: DMatrix for test set.
+            valid_dmatrix: DMatrix for validation set.
+            num_train: Number of training samples.
+            num_test: Number of test samples.
+            num_val: Number of validation samples.
     """
+    # Check if desired data engineering techniques are valid
+    validate_data_args(use_smote, use_rus, n_pca_components)
+
+    random_state = random.randint(1, 1000)
+
     # Load and preprocess the data
-    data = pd.read_csv(current_file_directory + config['data']['dataset_path'])
-    data = data_preprocess(data, encode=encode)
+    data_path = os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path'])
+    data = pd.read_csv(data_path)
+    data = data_cleaning(data)
+
+    if encode:
+        data = apply_encoding(data)
+        log(logging.INFO, f" --> Encoding applied.")
 
     # Partition data
-    partitioner = IidPartitioner(num_partitions=n_partitions)
+    partitioner = DirichletPartitioner(
+        num_partitions=n_partitions,
+        partition_by="def_pay",
+        alpha=10,
+        min_partition_size=1000,
+        self_balancing=True)
     partitioner.dataset = HFDataset.from_pandas(data, preserve_index=False)
     client_data = partitioner.load_partition(partition_id).to_pandas()
 
     # Split the data
-    train_data, test_data, val_data = split_data(client_data, scale=scale, smote=smote, pca=pca, ica=ica, rus=rus)
+    train_data, test_data, val_data = split_data(client_data, random_state)
 
-    train_data = train_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
-    test_data = test_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
-    val_data = val_data[['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']]
-
-    num_train = len(train_data)
-    num_test = len(test_data)
-    num_val = len(val_data)
-
-    log(
-        logging.WARNING,
-        f"\nClient ID: {partition_id}/{n_partitions} "
-        f"\nData split: (Train - Test - Val) {num_train} - {num_test} - {num_val} "
-        f"\nClass distribution: \n{train_data['def_pay'].value_counts()} "
+    train_data, test_data, val_data = apply_transformations(
+        train_data,
+        test_data,
+        val_data,
+        random_state,
+        **{
+            "use_smote": use_smote,
+            "use_rus": use_rus,
+            "scale": scale,
+            "encode": encode,
+            "n_pca_components": n_pca_components,
+            "kbest": kbest
+        }
     )
+
+    num_train, num_test, num_val = len(train_data), len(test_data), len(val_data)
+
+    log(logging.INFO, f"Client ID: {partition_id}/{n_partitions}")
+    log(logging.INFO, f"Data split: (Train: {num_train} - Test: {num_test} - Val: {num_val})")
+    log(logging.INFO, f"Class distribution: {train_data['def_pay'].value_counts().to_dict()}")
 
     train_dmatrix = transform_dataset_to_dmatrix(train_data)
     test_dmatrix = transform_dataset_to_dmatrix(test_data)
     valid_dmatrix = transform_dataset_to_dmatrix(val_data)
 
     return train_dmatrix, test_dmatrix, valid_dmatrix, num_train, num_test, num_val
+
+
+def validate_data_args(smote, rus, pca):
+    if smote and rus:
+        raise ValueError("Only one of SMOTE or RUS can be applied at a time.")
+    if pca != 0 and pca < 2:
+        raise ValueError("n_pca_components should be at least 2 if not zero.")
+
+
+def apply_transformations(
+        train_data: pd.DataFrame,
+        test_data: pd.DataFrame,
+        val_data: pd.DataFrame,
+        random_state: int,
+        **kwargs
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    if kwargs.get('scale', False):
+        train_data, test_data, val_data = apply_scaling(train_data, test_data, val_data)
+        log(logging.INFO, f" --> Scaling applied.")
+
+    if kwargs.get('use_smote', False):
+        train_data, test_data, val_data = apply_smote(train_data, test_data, val_data, random_state)
+        log(logging.INFO, f" --> SMOTE applied.")
+
+    if kwargs.get('use_rus', False):
+        train_data, test_data, val_data = apply_rus(train_data, test_data, val_data, random_state)
+        log(logging.INFO, f" --> RUS applied.")
+
+    if kwargs.get('n_pca_components', 0) > 0:
+        train_data, test_data, val_data = apply_pca(train_data, test_data, val_data, kwargs['n_pca_components'])
+        log(logging.INFO, f" --> PCA applied.")
+
+    if kwargs.get('kbest', False):
+        train_data, test_data, val_data = apply_kbest(
+            train_data,
+            test_data,
+            val_data,
+            ['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']
+        )
+        log(logging.INFO, f" --> kBest applied.")
+
+    return train_data, test_data, val_data

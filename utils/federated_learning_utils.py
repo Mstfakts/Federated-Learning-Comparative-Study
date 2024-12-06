@@ -4,6 +4,11 @@ import numpy as np
 from flwr.common import Metrics, Scalar
 from sklearn.svm import LinearSVC
 
+from src.federated.clients.xgboosts import evaluate_metrics_aggregation, config_func
+from src.federated.custom_strategies.fedavg import FedAvg
+from src.federated.custom_strategies.fedf1 import FedF1
+from src.federated.custom_strategies.fedxgbbagging_fedavg_fedf1 import FedXgbBagging
+
 
 def set_initial_params(model: LinearSVC, n_features: int, n_classes: int):
     """Set initial parameters as zeros.
@@ -49,3 +54,50 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Dict[str, Scalar]:
         weighted_metrics[metric_name] = sum(metric_values) / num_samples_sum
 
     return weighted_metrics
+
+
+def create_strategy(model_name, strategy_name):
+    if strategy_name == "FedF1":
+
+        if model_name == "xgboosts":
+            return FedXgbBagging(
+                strategy="FedF1",
+                fraction_fit=1.0,
+                min_fit_clients=2,
+                min_available_clients=2,
+                min_evaluate_clients=2,
+                fraction_evaluate=1.0,
+                evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation,
+                on_evaluate_config_fn=config_func,
+                on_fit_config_fn=config_func,
+            )
+
+        return FedF1(
+            min_available_clients=2,
+            fit_metrics_aggregation_fn=weighted_average,
+            evaluate_metrics_aggregation_fn=weighted_average,
+        )
+
+    elif strategy_name == "FedAvg":
+
+        if model_name == "xgboosts":
+            return FedXgbBagging(
+                strategy="FedAvg",
+                fraction_fit=1.0,
+                min_fit_clients=2,
+                min_available_clients=2,
+                min_evaluate_clients=2,
+                fraction_evaluate=1.0,
+                evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation,
+                on_evaluate_config_fn=config_func,
+                on_fit_config_fn=config_func,
+            )
+
+        return FedAvg(
+            min_available_clients=2,
+            fit_metrics_aggregation_fn=weighted_average,
+            evaluate_metrics_aggregation_fn=weighted_average,
+        )
+
+    else:
+        raise ValueError(f"Unsupported strategy: {strategy_name}")

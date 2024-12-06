@@ -5,15 +5,14 @@ round: 10
 training:
   batch_size: 64
   learning_rate: 0.01
-  max_iter: 1
 
 data:
-  dataset_path: "/UCI_Credit_Card.csv"
+  dataset_path: "UCI_Credit_Card.csv"
   smote: false
   rus: false
   scale: true
   encode: true
-  pca:
+  pca: 0
   batch_size: 64
 
 aggregation:
@@ -27,3 +26,4 @@ model:
   hidden_layer_sizes:
     - 100
   output_size: 1
+  max_iter: 1000
