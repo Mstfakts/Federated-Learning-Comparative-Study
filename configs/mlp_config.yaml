@@ -13,6 +13,7 @@ data:
   scale: true
   encode: true
   pca: 0
+  kbest: false
   batch_size: 64
 
 aggregation:
