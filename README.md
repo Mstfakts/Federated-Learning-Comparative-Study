@@ -40,7 +40,7 @@ to handle the class imbalance and reduce feature dimensions.
 
 ### Datasets
 The primary dataset used is the 
-**"Default of Credit Card Clients in Taiwan"** dataset from the UCI Machine Learning Repository [citation].
+**"Default of Credit Card Clients in Taiwan"** (DCCC) dataset from the UCI Machine Learning Repository [citation].
 It consists of 30,000 records and 24 attributes related to customers' demographic information and historical payment data.
 **Dataset Link**: [UCI Repository](https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients)
 
@@ -62,10 +62,12 @@ It consists of 30,000 records and 24 attributes related to customers' demographi
    ```sh
    cd Federated-Learning-Comparative-Study
    ```
-3. Run the `main.py` file to start the training process:
+3. Run the `main.py` file to start the Federated Learning training process:
    ```sh
-   python main.py
+   python .\src\federated\main.py
    ```
+4. As output, the results of the experiments performed in FL environment for 
+5 different ML algorithms will be generated in .txt files.
    
 ### Experiments
 The experiments included:
@@ -73,8 +75,8 @@ The experiments included:
 - **Model Training**: Training models using both centralized and federated approaches.
 - **Performance Evaluation**: Models were evaluated based on **Accuracy**, **Precision**, **Recall**, and **F1 Score**.
 
-The experiments are configured using the `config.yaml` file under configs folder, where you can modify hyperparameters, 
-aggregation methods, and other settings.
+The experiments are configured using the `config.yaml` file under '.\configs\' folder, where you can modify 
+hyperparameters, aggregation methods, and other settings.
 
 
 ### Results
@@ -101,11 +103,14 @@ We welcome contributions to this project. Feel free to submit pull requests or i
 
 ### Citation
 If you use this work, please cite:
+(Will be updated)
 ```bibtex
 @article{aktas2024creditrisk,
   title={Enhancing Credit Risk Assessment with Federated Learning through A Comparative Study},
+  url={X}
+  DOI={X}, 
+  booktitle={EAI/Springer Innovations in Communication and Computing}, 
   author={Mustafa Aktaş, Ruşen Akkuş Halepmollası, and Behçet Uğur Töreyin},
-  year={2024},
-  journal={will be updated}
+  year={2024}, month=X, pages={X-X}
 }
 ```
