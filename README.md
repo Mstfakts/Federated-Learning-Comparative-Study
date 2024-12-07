@@ -47,7 +47,7 @@ It consists of 30,000 records and 24 attributes related to customers' demographi
 
 ### Getting Started
 #### Prerequisites
-- Python 3.8+
+- Python 3.10+
 - Install required dependencies by running:
   ```sh
   pip install -r requirements.txt

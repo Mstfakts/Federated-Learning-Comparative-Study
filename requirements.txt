@@ -5,6 +5,7 @@ matplotlib~=3.9.2
 seaborn~=0.13.2
 datasets~=2.19.2
 flwr~=1.11.0
+flwr_datasets~=0.3.0
 imblearn~=0.0
 scikit-learn~=1.5.1
 torch~=2.4.1
