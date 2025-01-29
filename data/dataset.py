@@ -1,8 +1,9 @@
+import gc
 import logging
 import os
 import random
 from typing import Dict, Tuple
-import gc
+
 import pandas as pd
 import torch
 import xgboost as xgb
@@ -75,6 +76,7 @@ def load_partition_in_chunks(hf_dataset, chunk_size=50_000):
         # O parçayı pandas'a dönüştür
         df_chunk = subset.to_pandas()
         yield df_chunk
+
 
 def load_dataloader(
         partition_id: int,
@@ -171,6 +173,11 @@ def load_dataloader(
             "kbest": kbest
         }
     )
+
+    if 'SK_ID_CURR' in train_data.columns:
+        train_data = train_data.drop(columns=['SK_ID_CURR'])
+        test_data = test_data.drop(columns=['SK_ID_CURR'])
+        val_data = val_data.drop(columns=['SK_ID_CURR'])
 
     num_train, num_test, num_val = len(train_data), len(test_data), len(val_data)
 

@@ -1,6 +1,6 @@
 client: 5
 
-round: 10
+round: 7
 
 training:
   batch_size: 64
@@ -9,15 +9,15 @@ training:
 data:
   dataset_path: "train_imputed_lowvarianceremoved225.csv"
   smote: false
-  rus: false
+  rus: true
   scale: false
   encode: true
   pca: 0
-  kbest: true
+  kbest: false
   batch_size: 64
 
 aggregation:
-  method: FedF1
+  method: FedAvg
 
 server:
   address: "127.0.0.1:8080"
