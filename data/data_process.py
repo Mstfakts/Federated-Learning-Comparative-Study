@@ -67,7 +67,10 @@ def apply_smote(train_data, test_data, val_data, random_state):
     train_data = train_data.reset_index(drop=True)
     train_data['index'] = train_data.index
 
-    print(f"Class distribution after applying SMOTE: {train_data['def_pay'].value_counts()}")
+    log(
+        logging.WARNING,
+        f"Class distribution after applying SMOTE: {train_data['def_pay'].value_counts()}"
+    )
 
     test_data = test_data[train_data.columns]
     val_data = val_data[train_data.columns]
@@ -87,7 +90,10 @@ def apply_rus(train_data, test_data, val_data, random_state):
     train_data = train_data.reset_index(drop=True)
     train_data['index'] = train_data.index
 
-    print(f"Class distribution after applying RUS: {train_data['def_pay'].value_counts()}")
+    log(
+        logging.WARNING,
+        f"Class distribution after applying RUS: {train_data['def_pay'].value_counts()}"
+    )
 
     test_data = test_data[train_data.columns]
     val_data = val_data[train_data.columns]
