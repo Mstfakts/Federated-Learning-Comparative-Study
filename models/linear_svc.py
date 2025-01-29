@@ -7,6 +7,8 @@ config = get_config()
 model = LinearSVC(
     C=config['model']['C'],
     class_weight=config['model']['class_weight'],
+    dual=config['model']['dual'],
+    loss=config['model']['loss'],
     max_iter=config['model']['max_iter'],
-    dual=config['model']['dual']
+    penalty=config['model']['penalty'],
 )

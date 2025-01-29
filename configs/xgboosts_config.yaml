@@ -7,17 +7,17 @@ training:
   learning_rate: 0.01
 
 data:
-  dataset_path: "UCI_Credit_Card.csv"
+  dataset_path: "train_imputed_lowvarianceremoved225.csv"
   smote: false
   rus: false
-  scale: true
+  scale: false
   encode: true
   pca: 0
-  kbest: false
+  kbest: true
   batch_size: 64
 
 aggregation:
-  method: FedAvg
+  method: FedF1
 
 server:
   address: "127.0.0.1:8080"
@@ -27,3 +27,7 @@ model:
   learning_rate: 0.1
   max_depth: 3
   tree_method: "hist"
+  eval_metric: 'logloss'
+  n_estimators: 200
+  scale_pos_weight: 5
+  use_label_encoder: False

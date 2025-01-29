@@ -2,7 +2,7 @@ import logging
 import os
 import random
 from typing import Dict, Tuple
-
+import gc
 import pandas as pd
 import torch
 import xgboost as xgb
@@ -20,7 +20,6 @@ from data.data_process import (
     apply_scaling,
     apply_kbest,
     apply_encoding,
-    data_cleaning,
     transform_dataset_to_dmatrix,
 )
 
@@ -43,10 +42,10 @@ class DataFrameDataset(Dataset):
 
     def __init__(self, data_frame: pd.DataFrame, use_pca: bool = False):
         self.data = data_frame.reset_index(drop=True)
-        self.labels = self.data['def_pay'].values
+        self.labels = self.data['TARGET'].values
 
         # Determine which columns to drop
-        drop_columns = ['def_pay']
+        drop_columns = ['TARGET']
         if not use_pca:
             # If PCA is not used, ensure 'index' column is dropped if it exists
             if 'index' in self.data.columns:
@@ -62,6 +61,20 @@ class DataFrameDataset(Dataset):
         label = torch.tensor(self.labels[idx], dtype=torch.float32)
         return features, label
 
+
+def load_partition_in_chunks(hf_dataset, chunk_size=50_000):
+    """
+    Hugging Face Dataset'i chunk_size boyutunda parçalara bölerek
+    her birini pandas DataFrame olarak yield eden jeneratör.
+    """
+    length = len(hf_dataset)
+    for start_idx in range(0, length, chunk_size):
+        end_idx = min(start_idx + chunk_size, length)
+        # HF dataset'in bir parçasını seç
+        subset = hf_dataset.select(range(start_idx, end_idx))
+        # O parçayı pandas'a dönüştür
+        df_chunk = subset.to_pandas()
+        yield df_chunk
 
 def load_dataloader(
         partition_id: int,
@@ -110,8 +123,10 @@ def load_dataloader(
 
     # Load and preprocess the data
     data_path = os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path'])
+    data_path = "/Users/mustafaaktas/Desktop/case/home-credit-default-risk/train_imputed_lowvarianceremoved225.csv"
     data = pd.read_csv(data_path)
-    data = data_cleaning(data)
+
+    log(logging.INFO, f"Shape of initial dataset (train+test+val): {data.shape}")
 
     if encode:
         data = apply_encoding(data)
@@ -120,16 +135,28 @@ def load_dataloader(
     # Partition the training data for federated learning
     partitioner = DirichletPartitioner(
         num_partitions=n_partitions,
-        partition_by="def_pay",
+        partition_by="TARGET",
         alpha=10,
         min_partition_size=1000,
         self_balancing=True)
     partitioner.dataset = HFDataset.from_pandas(data, preserve_index=False)
-    client_data = partitioner.load_partition(partition_id).to_pandas()
+    del data
+    gc.collect()
+    client_dataset = partitioner.load_partition(partition_id)
+
+    # Chunk halinde pandas'a dönüştür
+    df_list = []
+    for df_chunk in load_partition_in_chunks(client_dataset, chunk_size=1000):
+        # İhtiyaç varsa chunk bazında da bir ön işlem (encode, vb.) yapabilirsiniz
+        df_list.append(df_chunk)
+
+    # Tüm chunk'ları birleştir
+    client_data = pd.concat(df_list, ignore_index=True)
 
     # Split the data
     train_data, test_data, val_data = split_data(client_data, random_state)
-
+    del client_data
+    gc.collect()
     train_data, test_data, val_data = apply_transformations(
         train_data,
         test_data,
@@ -138,7 +165,7 @@ def load_dataloader(
         **{
             "use_smote": use_smote,
             "use_rus": use_rus,
-            "scale": scale,
+            "scale": False,  # It is already scaled
             "encode": encode,
             "n_pca_components": n_pca_components,
             "kbest": kbest
@@ -160,7 +187,7 @@ def load_dataloader(
 
     log(logging.INFO, f"Client ID: {partition_id}/{n_partitions}")
     log(logging.INFO, f"Data split: (Train: {num_train} - Test: {num_test} - Val: {num_val})")
-    log(logging.INFO, f"Class distribution: {train_data['def_pay'].value_counts().to_dict()}")
+    log(logging.INFO, f"Class distribution: {train_data['TARGET'].value_counts().to_dict()}")
 
     dataset_sizes = {
         "trainset": num_train,
@@ -168,7 +195,10 @@ def load_dataloader(
         "valset": num_val
     }
 
-    return trainloader, testloader, valloader, dataset_sizes
+    if 'pandas' in config['data'].keys() and config['data']['pandas']:
+        return trainset, testset, valset, dataset_sizes
+    else:
+        return trainloader, testloader, valloader, dataset_sizes
 
 
 def load_dmatrix(
@@ -221,7 +251,6 @@ def load_dmatrix(
     # Load and preprocess the data
     data_path = os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path'])
     data = pd.read_csv(data_path)
-    data = data_cleaning(data)
 
     if encode:
         data = apply_encoding(data)
@@ -259,7 +288,7 @@ def load_dmatrix(
 
     log(logging.INFO, f"Client ID: {partition_id}/{n_partitions}")
     log(logging.INFO, f"Data split: (Train: {num_train} - Test: {num_test} - Val: {num_val})")
-    log(logging.INFO, f"Class distribution: {train_data['def_pay'].value_counts().to_dict()}")
+    log(logging.INFO, f"Class distribution: {train_data['TARGET'].value_counts().to_dict()}")
 
     train_dmatrix = transform_dataset_to_dmatrix(train_data)
     test_dmatrix = transform_dataset_to_dmatrix(test_data)
@@ -284,27 +313,37 @@ def apply_transformations(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if kwargs.get('scale', False):
         train_data, test_data, val_data = apply_scaling(train_data, test_data, val_data)
-        log(logging.INFO, f" --> Scaling applied.")
+        log(logging.INFO, f" --> Scaling applied. Shape: {train_data.shape}")
 
     if kwargs.get('use_smote', False):
         train_data, test_data, val_data = apply_smote(train_data, test_data, val_data, random_state)
-        log(logging.INFO, f" --> SMOTE applied.")
+        log(logging.INFO, f" --> SMOTE applied. Shape: {train_data.shape}")
 
     if kwargs.get('use_rus', False):
         train_data, test_data, val_data = apply_rus(train_data, test_data, val_data, random_state)
-        log(logging.INFO, f" --> RUS applied.")
+        log(logging.INFO, f" --> RUS applied. Shape: {train_data.shape}")
 
     if kwargs.get('n_pca_components', 0) > 0:
         train_data, test_data, val_data = apply_pca(train_data, test_data, val_data, kwargs['n_pca_components'])
-        log(logging.INFO, f" --> PCA applied.")
+        log(logging.INFO, f" --> PCA applied. Shape: {train_data.shape}")
 
     if kwargs.get('kbest', False):
         train_data, test_data, val_data = apply_kbest(
             train_data,
             test_data,
             val_data,
-            ['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']
+            ['DAYS_BIRTH', 'DAYS_ID_PUBLISH', 'REGION_RATING_CLIENT', 'REGION_RATING_CLIENT_W_CITY', 'EXT_SOURCE_1',
+             'EXT_SOURCE_2', 'EXT_SOURCE_3', 'DAYS_LAST_PHONE_CHANGE', 'CODE_GENDER_F', 'CODE_GENDER_M',
+             'NAME_INCOME_TYPE_Working', 'NAME_EDUCATION_TYPE_Higher education',
+             'NAME_EDUCATION_TYPE_Secondary / secondary special', 'preapp_CODE_REJECT_REASON_HC_mean',
+             'preapp_NAME_PRODUCT_TYPE_walk-in_mean', 'preapp_NAME_CONTRACT_STATUS_Refused_mean',
+             'preapp_NFLAG_INSURED_ON_APPROVAL_Missing_mean', 'preapp_NAME_CONTRACT_STATUS_Approved_mean',
+             'preapp_CODE_REJECT_REASON_XAP_mean', 'preapp_DAYS_DECISION_min', 'preapp_DAYS_FIRST_DRAWING_count',
+             'preapp_DAYS_FIRST_DUE_min', 'preapp_DAYS_LAST_DUE_1ST_VERSION_min', 'preapp_DAYS_LAST_DUE_min',
+             'client_installments_DAYS_ENTRY_PAYMENT_min_min', 'client_installments_DAYS_INSTALMENT_min_min',
+             'client_installments_DAYS_INSTALMENT_mean_min', 'client_installments_DAYS_ENTRY_PAYMENT_mean_min',
+             'client_installments_DAYS_ENTRY_PAYMENT_max_min', 'client_installments_DAYS_INSTALMENT_max_min', 'TARGET']
         )
-        log(logging.INFO, f" --> kBest applied.")
+        log(logging.INFO, f" --> kBest applied. Shape: {train_data.shape}")
 
     return train_data, test_data, val_data

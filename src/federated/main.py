@@ -36,7 +36,7 @@ def create_file_names():
     os.environ["result_filepath"] = RESULT_FILEPATH
 
     # Logging file
-    LOG_FILENAME = f"experiment_logs_{CURR_TIME}.log"
+    LOG_FILENAME = f"experiment_logs_{CURR_TIME}.txt"
     os.environ["log_filename"] = LOG_FILENAME
 
 
@@ -82,7 +82,8 @@ if __name__ == "__main__":
         ML_ALGORITHMS.XGBOOSTS,
         ML_ALGORITHMS.MLP
     ]
-    for alg in algorithms_for_experiment:
+
+    for index, alg in enumerate(algorithms_for_experiment):
         # Create result and logfile names
         create_file_names()
 
@@ -100,3 +101,5 @@ if __name__ == "__main__":
 
         # Wait for a while
         time.sleep(30)
+        os.system("""osascript -e 'tell application "Terminal" to quit'""")
+        time.sleep(5)
