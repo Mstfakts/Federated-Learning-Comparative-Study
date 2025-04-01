@@ -208,7 +208,8 @@ def main() -> None:
         use_smote=config['data']['smote'],
         use_rus=config['data']['rus'],
         encode=config['data']['encode'],
-        n_pca_components=config['data']['pca']
+        n_pca_components=config['data']['pca'],
+        kbest=config['data']['kbest']
     )
 
     client = XGBoostClient(

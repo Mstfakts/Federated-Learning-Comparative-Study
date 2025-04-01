@@ -1,5 +1,6 @@
 from typing import List, Tuple, Dict
-
+import logging
+from flwr.common.logger import log
 import numpy as np
 from flwr.common import Metrics, Scalar
 from sklearn.svm import LinearSVC
@@ -59,6 +60,10 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Dict[str, Scalar]:
 def create_strategy(model_name, strategy_name):
     if strategy_name == "FedF1":
 
+        log(
+            logging.INFO,
+            f"Current strategy is FedF1"
+        )
         if model_name == "xgboosts":
             return FedXgbBagging(
                 strategy="FedF1",
@@ -79,6 +84,11 @@ def create_strategy(model_name, strategy_name):
         )
 
     elif strategy_name == "FedAvg":
+
+        log(
+            logging.INFO,
+            f"Current strategy is FedAvg"
+        )
 
         if model_name == "xgboosts":
             return FedXgbBagging(

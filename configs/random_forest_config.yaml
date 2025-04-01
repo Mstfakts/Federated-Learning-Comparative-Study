@@ -7,27 +7,27 @@ training:
   learning_rate: 0.01
 
 data:
-  dataset_path: "UCI_Credit_Card.csv"
+  dataset_path: "hmeq.csv"
   smote: false
   rus: false
-  scale: true
+  scale: false
   encode: true
   pca: 0
-  kbest: false
+  kbest: true
   batch_size: 64
 
 aggregation:
-  method: FedAvg
+  method: FedF1
 
 server:
   address: "127.0.0.1:8080"
 
 model:
-  class_weight:
-  criterion: 'entropy'
+  class_weight: balanced
+  criterion: 'gini'
   n_estimators: 100
   max_depth: 10
-  min_samples_split: 5
+  min_samples_split: 2
   min_samples_leaf: 1
   max_features: 'sqrt'
   bootstrap: true

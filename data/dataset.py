@@ -109,9 +109,10 @@ def load_dataloader(
     random_state = random.randint(1, 1000)
 
     # Load and preprocess the data
-    data_path = os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path'])
+    data_path = str(os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path']))
     data = pd.read_csv(data_path)
-    data = data_cleaning(data)
+
+    log(logging.INFO, f"Shape of initial dataset (train+test+val): {data.shape}")
 
     if encode:
         data = apply_encoding(data)
@@ -168,7 +169,10 @@ def load_dataloader(
         "valset": num_val
     }
 
-    return trainloader, testloader, valloader, dataset_sizes
+    if 'pandas' in config['data'].keys() and config['data']['pandas']:
+        return trainset, testset, valset, dataset_sizes
+    else:
+        return trainloader, testloader, valloader, dataset_sizes
 
 
 def load_dmatrix(
@@ -219,9 +223,11 @@ def load_dmatrix(
     random_state = random.randint(1, 1000)
 
     # Load and preprocess the data
-    data_path = os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path'])
+    data_path = str(os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path']))
     data = pd.read_csv(data_path)
     data = data_cleaning(data)
+
+    log(logging.INFO, f"Shape of initial dataset (train+test+val): {data.shape}")
 
     if encode:
         data = apply_encoding(data)
@@ -284,19 +290,19 @@ def apply_transformations(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if kwargs.get('scale', False):
         train_data, test_data, val_data = apply_scaling(train_data, test_data, val_data)
-        log(logging.INFO, f" --> Scaling applied.")
+        log(logging.INFO, f" --> Scaling applied. Shape: {train_data.shape}")
 
     if kwargs.get('use_smote', False):
         train_data, test_data, val_data = apply_smote(train_data, test_data, val_data, random_state)
-        log(logging.INFO, f" --> SMOTE applied.")
+        log(logging.INFO, f" --> SMOTE applied. Shape: {train_data.shape}")
 
     if kwargs.get('use_rus', False):
         train_data, test_data, val_data = apply_rus(train_data, test_data, val_data, random_state)
-        log(logging.INFO, f" --> RUS applied.")
+        log(logging.INFO, f" --> RUS applied. Shape: {train_data.shape}")
 
     if kwargs.get('n_pca_components', 0) > 0:
         train_data, test_data, val_data = apply_pca(train_data, test_data, val_data, kwargs['n_pca_components'])
-        log(logging.INFO, f" --> PCA applied.")
+        log(logging.INFO, f" --> PCA applied. Shape: {train_data.shape}")
 
     if kwargs.get('kbest', False):
         train_data, test_data, val_data = apply_kbest(
@@ -305,6 +311,6 @@ def apply_transformations(
             val_data,
             ['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']
         )
-        log(logging.INFO, f" --> kBest applied.")
+        log(logging.INFO, f" --> kBest applied. Shape: {train_data.shape}")
 
     return train_data, test_data, val_data

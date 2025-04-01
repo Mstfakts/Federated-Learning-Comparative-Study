@@ -7,7 +7,7 @@ training:
   learning_rate: 0.01
 
 data:
-  dataset_path: "UCI_Credit_Card.csv"
+  dataset_path: "hmeq.csv"
   smote: false
   rus: false
   scale: true

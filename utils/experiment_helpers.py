@@ -49,17 +49,30 @@ def start_commands(ml_algorithm):
     Parameters:
     ml_algorithm (str): The name of the machine learning algorithm.
     """
+
+    # TODO hem Win hem MacOS için ayrı ayrı kod yaz
+    conda_init_script = "/Users/mustafaaktas/anaconda3/etc/profile.d/conda.sh"
+    env_name = "Federated-Learning-Comparative-Study"
+
     commands = [
-        ["python", f"base/server.py"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "0"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "1"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "2"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "3"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "4"]
+        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/base/server.py"],
+        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "0"],
+        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "1"],
+        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "2"],
+        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "3"],
+        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "4"]
     ]
 
     for command in commands:
-        os.system(f"start cmd /k {' '.join(command)}")
+        cmd_str = " ".join(command)
+
+        final_command = (
+            f'source {conda_init_script}; '
+            f'conda activate {env_name}; '
+            f'{cmd_str}'
+        )
+        os.system(f'''osascript -e 'tell application "Terminal" to do script "{final_command}"' ''')
+
 
 
 def wait_for_file(filepath, wait_interval=5):

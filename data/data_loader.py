@@ -23,7 +23,8 @@ def partition_data_loader(partition_id):
         use_smote=config['data']['smote'],
         use_rus=config['data']['rus'],
         encode=config['data']['encode'],
-        n_pca_components=config['data']['pca']
+        n_pca_components=config['data']['pca'],
+        kbest=config['data']['kbest']
     )
 
     return train_loader, test_loader, val_loader, num_examples
