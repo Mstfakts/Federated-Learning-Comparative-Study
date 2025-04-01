@@ -77,10 +77,10 @@ if __name__ == "__main__":
 
     algorithms_for_experiment = [
         ML_ALGORITHMS.LOGISTIC_REGRESSION,
-        # ML_ALGORITHMS.MLP
+        ML_ALGORITHMS.MLP,
         ML_ALGORITHMS.LINEAR_SVC,
-        # ML_ALGORITHMS.XGBOOSTS,
         ML_ALGORITHMS.RANDOM_FOREST,
+        ML_ALGORITHMS.XGBOOSTS,
     ]
 
     for index, alg in enumerate(algorithms_for_experiment):

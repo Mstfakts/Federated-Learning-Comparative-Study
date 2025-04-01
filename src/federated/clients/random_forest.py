@@ -1,8 +1,3 @@
-import os
-
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-os.environ["config_file"] = "random_forest"
-
 from typing import List, Dict, Any, Optional
 
 import numpy as np

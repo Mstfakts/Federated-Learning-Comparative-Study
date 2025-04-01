@@ -57,19 +57,23 @@ def apply_encoding(data):
 def apply_smote(train_data, test_data, val_data, random_state):
     # Apply SMOTE to the training data
     smote_processor = SMOTE(random_state=random_state)
-    X_train = train_data.drop(columns=['def_pay', 'index'])
-    y_train = train_data['def_pay']
+    X_train = train_data.drop(columns=['TARGET'])
+    y_train = train_data['TARGET']
     X_resampled, y_resampled = smote_processor.fit_resample(X_train, y_train)
 
     # Reconstruct the training DataFrame
-    train_data = pd.DataFrame(X_resampled, columns=X_train.columns)
-    train_data['def_pay'] = y_resampled
-    train_data = train_data.reset_index(drop=True)
-    train_data['index'] = train_data.index
+    train_data = pd.concat(
+        [
+            pd.DataFrame(X_resampled, columns=X_train.columns),
+            pd.Series(y_resampled, name='TARGET')
+        ],
+        axis=1
+    )
+
 
     log(
         logging.WARNING,
-        f"Class distribution after applying SMOTE: {train_data['def_pay'].value_counts()}"
+        f"Class distribution after applying SMOTE: {train_data['TARGET'].value_counts()}"
     )
 
     test_data = test_data[train_data.columns]
@@ -177,7 +181,7 @@ def apply_kbest(train_data, test_data, val_data, features):
 
 def transform_dataset_to_dmatrix(data) -> xgb.core.DMatrix:
     """Transform dataset to DMatrix format for xgboost."""
-    y = data["def_pay"]
-    x = data.drop(columns=['def_pay', 'index'])
+    y = data["TARGET"]
+    x = data.drop(columns=['TARGET'])
     new_data = xgb.DMatrix(x, label=y)
     return new_data

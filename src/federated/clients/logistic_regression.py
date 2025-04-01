@@ -1,8 +1,3 @@
-import os
-
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-os.environ["config_file"] = "logistic_regression"
-
 from configs.config import get_config
 from data.data_loader import partition_data_loader
 from models.logistic_regression import model

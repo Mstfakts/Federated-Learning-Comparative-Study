@@ -10,7 +10,7 @@ data:
   dataset_path: "train_imputed_lowvarianceremoved225.csv"
   smote: false
   rus: false
-  scale: true
+  scale: false
   encode: true
   pca: 0
   kbest: false
@@ -27,4 +27,4 @@ model:
   hidden_layer_sizes:
     - 100
   output_size: 1
-  max_iter: 1000
+  max_iter: 200

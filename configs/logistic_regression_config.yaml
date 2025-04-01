@@ -1,6 +1,6 @@
 client: 5
 
-round: 7
+round: 10
 
 training:
   batch_size: 64
@@ -9,7 +9,7 @@ training:
 data:
   dataset_path: "train_imputed_lowvarianceremoved225.csv"
   smote: false
-  rus: true
+  rus: false
   scale: false
   encode: true
   pca: 0

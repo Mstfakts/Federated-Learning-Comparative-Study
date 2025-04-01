@@ -124,8 +124,7 @@ def load_dataloader(
     random_state = random.randint(1, 1000)
 
     # Load and preprocess the data
-    data_path = os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path'])
-    data_path = "/Users/mustafaaktas/Desktop/case/home-credit-default-risk/train_imputed_lowvarianceremoved225.csv"
+    data_path = str(os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path']))
     data = pd.read_csv(data_path)
 
     log(logging.INFO, f"Shape of initial dataset (train+test+val): {data.shape}")
@@ -256,8 +255,10 @@ def load_dmatrix(
     random_state = random.randint(1, 1000)
 
     # Load and preprocess the data
-    data_path = os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path'])
+    data_path = str(os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path']))
     data = pd.read_csv(data_path)
+
+    log(logging.INFO, f"Shape of initial dataset (train+test+val): {data.shape}")
 
     if encode:
         data = apply_encoding(data)
@@ -266,16 +267,28 @@ def load_dmatrix(
     # Partition data
     partitioner = DirichletPartitioner(
         num_partitions=n_partitions,
-        partition_by="def_pay",
+        partition_by="TARGET",
         alpha=10,
         min_partition_size=1000,
         self_balancing=True)
     partitioner.dataset = HFDataset.from_pandas(data, preserve_index=False)
-    client_data = partitioner.load_partition(partition_id).to_pandas()
+    del data
+    gc.collect()
+    client_dataset = partitioner.load_partition(partition_id)
+
+    # Chunk halinde pandas'a dönüştür
+    df_list = []
+    for df_chunk in load_partition_in_chunks(client_dataset, chunk_size=1000):
+        # İhtiyaç varsa chunk bazında da bir ön işlem (encode, vb.) yapabilirsiniz
+        df_list.append(df_chunk)
+
+    # Tüm chunk'ları birleştir
+    client_data = pd.concat(df_list, ignore_index=True)
 
     # Split the data
     train_data, test_data, val_data = split_data(client_data, random_state)
-
+    del client_data
+    gc.collect()
     train_data, test_data, val_data = apply_transformations(
         train_data,
         test_data,
@@ -290,6 +303,11 @@ def load_dmatrix(
             "kbest": kbest
         }
     )
+
+    if 'SK_ID_CURR' in train_data.columns:
+        train_data = train_data.drop(columns=['SK_ID_CURR'])
+        test_data = test_data.drop(columns=['SK_ID_CURR'])
+        val_data = val_data.drop(columns=['SK_ID_CURR'])
 
     num_train, num_test, num_val = len(train_data), len(test_data), len(val_data)
 

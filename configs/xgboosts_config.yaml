@@ -13,11 +13,11 @@ data:
   scale: false
   encode: true
   pca: 0
-  kbest: true
+  kbest: false
   batch_size: 64
 
 aggregation:
-  method: FedF1
+  method: FedAvg
 
 server:
   address: "127.0.0.1:8080"
