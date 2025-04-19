@@ -19,10 +19,10 @@ def partition_data_loader(partition_id):
         partition_id=partition_id,
         n_partitions=config['client'],
         batch_size=config['data']['batch_size'],
-        scale=config['data']['scale'],
+        scale=False,  # Already scaled
         use_smote=config['data']['smote'],
         use_rus=config['data']['rus'],
-        encode=config['data']['encode'],
+        encode=False,  # Already encoded
         n_pca_components=config['data']['pca'],
         kbest=config['data']['kbest']
     )

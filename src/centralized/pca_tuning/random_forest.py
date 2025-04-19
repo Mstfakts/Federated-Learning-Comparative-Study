@@ -18,7 +18,7 @@ import warnings
 
 warnings.filterwarnings('ignore', message='\'n_jobs\' > 1 does not have any effect')
 np.random.seed(42)
-n_components_perc = 0.90
+n_components_perc = 0.95
 metric = 'accuracy'
 config = get_config()
 config['client'] = 1
@@ -26,52 +26,20 @@ config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False
 config['data']['smote'] = False
 config['data']['rus'] = False
-config['data']['encode'] = True
+config['data']['encode'] = False
 config['data']['pca'] = False
 config['data']['pandas'] = True
 
 
-def get_balanced_sample(features, labels, sample_size_per_class=None):
-    unique_classes = np.unique(labels)
-    if sample_size_per_class is None:
-        sample_size_per_class = min([sum(labels == c) for c in unique_classes])
-
-    total_samples = sample_size_per_class * len(unique_classes)
-    X = np.zeros((total_samples, features.shape[1]))
-    y = np.zeros(total_samples)
-
-    current_idx = 0
-    for c in unique_classes:
-        class_indices = np.where(labels == c)[0]
-        selected_indices = np.random.choice(class_indices, sample_size_per_class, replace=False)
-
-        end_idx = current_idx + sample_size_per_class
-        X[current_idx:end_idx] = features[selected_indices]
-        y[current_idx:end_idx] = c
-        current_idx = end_idx
-
-    indices = np.random.permutation(len(y))
-    return X[indices], y[indices]
-
-
 train_dataloader, test_dataloader, val_dataloader, num_examples = partition_data_loader(0)
-
-# X_train, y_train = get_balanced_sample(train_dataloader.features,
-#                                        train_dataloader.labels,
-#                                        sample_size_per_class=17000)
 
 X_train, y_train = train_dataloader.features, train_dataloader.labels
 X_test, X_val = test_dataloader.features, val_dataloader.features
 y_test, y_val = test_dataloader.labels, val_dataloader.labels
 
-# Veri ön işleme
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
-X_val_scaled = scaler.transform(X_val)
 
 pca_initial = PCA(random_state=42)
-pca_initial.fit(X_train_scaled)
+pca_initial.fit(X_train)
 
 cumsum = np.cumsum(pca_initial.explained_variance_ratio_)
 n_components_95 = np.argmax(cumsum >= n_components_perc) + 1
@@ -84,17 +52,17 @@ plt.ylabel('Kümülatif Varyans Oranı')
 plt.axhline(y=n_components_perc, color='r', linestyle='--')
 plt.show()
 
-n_components_range = list(range(2, min(n_components_95 + 1, 200), 5))
+n_components_range = list(range(2, min(n_components_95 + 1, 200), 1))
 
 best_params = \
     {'bootstrap': True,
      'class_weight': 'balanced',
      'criterion': 'gini',
-     'max_depth': 10,
+     'max_depth': 20,
      'max_features': 'sqrt',
      'min_samples_leaf': 1,
-     'min_samples_split': 2,
-     'n_estimators': 100,
+     'min_samples_split': 5,
+     'n_estimators': 200,
      'n_jobs': -1}
 
 results = []
@@ -102,8 +70,8 @@ results = []
 # PCA ve model eğitimi
 for n_comp in n_components_range:
     pca = PCA(n_components=n_comp, random_state=42)
-    X_train_pca = pca.fit_transform(X_train_scaled)
-    X_val_pca = pca.transform(X_val_scaled)
+    X_train_pca = pca.fit_transform(X_train)
+    X_val_pca = pca.transform(X_val)
 
     lr = RandomForestClassifier(**best_params)
     if metric == 'f1':
@@ -147,9 +115,9 @@ else:
 
 # En iyi model ile test performansı
 pca = PCA(n_components=best_result['n_components'], random_state=42)
-X_train_pca = pca.fit_transform(X_train_scaled)
-X_test_pca = pca.transform(X_test_scaled)
-X_val_pca = pca.transform(X_val_scaled)
+X_train_pca = pca.fit_transform(X_train)
+X_test_pca = pca.transform(X_test)
+X_val_pca = pca.transform(X_val)
 
 lr = RandomForestClassifier(**best_params)
 lr.fit(X_train_pca, y_train)

@@ -24,32 +24,9 @@ config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False
 config['data']['smote'] = False
 config['data']['rus'] = False
-config['data']['encode'] = True
+config['data']['encode'] = False
 config['data']['pca'] = False
 config['data']['pandas'] = True
-
-
-def get_balanced_sample(features, labels, sample_size_per_class=None):
-    unique_classes = np.unique(labels)
-    if sample_size_per_class is None:
-        sample_size_per_class = min([sum(labels == c) for c in unique_classes])
-
-    total_samples = sample_size_per_class * len(unique_classes)
-    X = np.zeros((total_samples, features.shape[1]))
-    y = np.zeros(total_samples)
-
-    current_idx = 0
-    for c in unique_classes:
-        class_indices = np.where(labels == c)[0]
-        selected_indices = np.random.choice(class_indices, sample_size_per_class, replace=False)
-
-        end_idx = current_idx + sample_size_per_class
-        X[current_idx:end_idx] = features[selected_indices]
-        y[current_idx:end_idx] = c
-        current_idx = end_idx
-
-    indices = np.random.permutation(len(y))
-    return X[indices], y[indices]
 
 
 train_dataloader, test_dataloader, val_dataloader, num_examples = partition_data_loader(0)
@@ -58,21 +35,16 @@ X_train, y_train = train_dataloader.features, train_dataloader.labels
 X_test, X_val = test_dataloader.features, val_dataloader.features
 y_test, y_val = test_dataloader.labels, val_dataloader.labels
 
-scaler = MinMaxScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
-X_val_scaled = scaler.transform(X_val)
-
 # K aralığını belirleme
 k_range = [5, 10, 15, 20, 25, 30]
 
 best_params = {
-    'C': 0.1,
+    'C': 1,
     'class_weight': 'balanced',
-    'max_iter': 500,
+    'max_iter': 1000,
     'n_jobs': -1,
     'penalty': 'l2',
-    'solver': 'lbfgs',
+    'solver': 'liblinear',
     'warm_start': True,
     'random_state': 42
 }
@@ -81,8 +53,8 @@ results = []
 
 for k in k_range:
     selector = SelectKBest(score_func=chi2, k=k)
-    X_train_selected = selector.fit_transform(X_train_scaled, y_train)
-    X_val_selected = selector.transform(X_val_scaled)
+    X_train_selected = selector.fit_transform(X_train, y_train)
+    X_val_selected = selector.transform(X_val)
 
     lr = LogisticRegression(**best_params)
     if metric == 'f1':
@@ -126,9 +98,9 @@ else:
 
 # En iyi k değeri ile test performansı
 selector = SelectKBest(score_func=f_classif, k=best_result['k_features'])
-X_train_selected = selector.fit_transform(X_train_scaled, y_train)
-X_test_selected = selector.transform(X_test_scaled)
-X_val_selected = selector.transform(X_val_scaled)
+X_train_selected = selector.fit_transform(X_train, y_train)
+X_test_selected = selector.transform(X_test)
+X_val_selected = selector.transform(X_val)
 
 lr = LogisticRegression(**best_params)
 lr.fit(X_train_selected, y_train)
@@ -155,7 +127,7 @@ selected_indices = np.where(support_mask)[0]
 
 print("Seçilen sütunların indeksleri:", selected_indices)
 
-feature_names = train_dataloader.data.columns.drop("TARGET")
+feature_names = train_dataloader.data.columns.drop("BAD")
 selected_feature_names = [feature_names[i] for i in selected_indices]
 
 print("Seçilen sütunların isimleri:", selected_feature_names)
@@ -175,4 +147,4 @@ plt.title(f"Top {best_result['k_features']} En Önemli Features")
 plt.xlabel('F-score')
 plt.tight_layout()
 plt.show()
-# ['DAYS_BIRTH', 'DAYS_ID_PUBLISH', 'REGION_RATING_CLIENT', 'REGION_RATING_CLIENT_W_CITY', 'EXT_SOURCE_1', 'EXT_SOURCE_2', 'EXT_SOURCE_3', 'DAYS_LAST_PHONE_CHANGE', 'CODE_GENDER_F', 'CODE_GENDER_M', 'NAME_INCOME_TYPE_Working', 'NAME_EDUCATION_TYPE_Higher education', 'NAME_EDUCATION_TYPE_Secondary / secondary special', 'preapp_CODE_REJECT_REASON_HC_mean', 'preapp_NAME_PRODUCT_TYPE_walk-in_mean', 'preapp_NAME_CONTRACT_STATUS_Refused_mean', 'preapp_NFLAG_INSURED_ON_APPROVAL_Missing_mean', 'preapp_NAME_CONTRACT_STATUS_Approved_mean', 'preapp_CODE_REJECT_REASON_XAP_mean', 'preapp_DAYS_DECISION_min', 'preapp_DAYS_FIRST_DRAWING_count', 'preapp_DAYS_FIRST_DUE_min', 'preapp_DAYS_LAST_DUE_1ST_VERSION_min', 'preapp_DAYS_LAST_DUE_min', 'client_installments_DAYS_ENTRY_PAYMENT_min_min', 'client_installments_DAYS_INSTALMENT_min_min', 'client_installments_DAYS_INSTALMENT_mean_min', 'client_installments_DAYS_ENTRY_PAYMENT_mean_min', 'client_installments_DAYS_ENTRY_PAYMENT_max_min', 'client_installments_DAYS_INSTALMENT_max_min']
+# Seçilen sütunların isimleri: ['DEROG', 'DELINQ', 'CLAGE', 'NINQ', 'DEBTINC']

@@ -12,6 +12,37 @@ from src.federated.base.parser import parser
 from utils.reporting import flatten_dict
 
 
+def get_coef_and_intercept_shapes():
+    """
+    input_size: Özellik sayısı (örneğin, X.shape[1])
+    hidden_layer_sizes: Gizli katman nöron sayılarını içeren liste/tupel (config['model']['hidden_layer_sizes'])
+    output_size: Çıkış sayısı (örneğin, len(np.unique(y)))
+    """
+    input_size = config['model']['input_size']
+    hidden_layer_sizes = config['model']['hidden_layer_sizes']
+    output_size = config['model']['output_size']
+
+    # Ağırlık (coefs_) şekillerini oluşturma
+    coef_shapes = []
+    # İlk ağırlık: giriş -> ilk gizli katman
+    coef_shapes.append((input_size, hidden_layer_sizes[0]))
+    # Aradaki gizli katmanlar: ardışık iki gizli katman arasındaki bağlantılar
+    for i in range(len(hidden_layer_sizes) - 1):
+        coef_shapes.append((hidden_layer_sizes[i], hidden_layer_sizes[i + 1]))
+    # Son ağırlık: son gizli katman -> çıkış katmanı
+    coef_shapes.append((hidden_layer_sizes[-1], output_size))
+
+    # Bias (intercepts_) şekillerini oluşturma:
+    intercept_shapes = []
+    # Her gizli katman için bias vektörü
+    for size in hidden_layer_sizes:
+        intercept_shapes.append((size,))
+    # Çıkış katmanı için bias vektörü
+    intercept_shapes.append((output_size,))
+
+    return [coef_shapes, intercept_shapes]
+
+
 # Define the Flower client
 class MLPClient(FlowerClient):
 
@@ -26,11 +57,7 @@ class MLPClient(FlowerClient):
         super().__init__(model, train_loader, test_loader, val_loader, initialize=False, sleep_sec=sleep_sec)
 
         # Shapes for reconstructing the model parameters
-        self.shapes = [
-            [(config['model']['input_size'], config['model']['hidden_layer_sizes'][0]),
-             (config['model']['hidden_layer_sizes'][0], config['model']['output_size'])],  # Shapes for coefs_
-            [(config['model']['hidden_layer_sizes'][0],), (config['model']['output_size'],)]  # Shapes for intercepts_
-        ]
+        self.shapes = get_coef_and_intercept_shapes()
 
     def evaluate(
             self, parameters: List[np.ndarray], config: Dict[str, Any]
@@ -121,7 +148,11 @@ if __name__ == "__main__":
     config['model']['input_size'] = train_loader.dataset.features.shape[1]
 
     # Initialize the model with a single sample to set up the parameters
-    model.partial_fit(X_sample[:1], y_sample[:1], classes=np.unique(y_sample))
+    classes = np.unique(y_sample)
+    init_indices = [np.where(y_sample == c)[0][0] for c in classes]
+    X_init = X_sample[init_indices]
+    y_init = y_sample[init_indices]
+    model.partial_fit(X_init, y_init, classes=classes)
 
     # Start Flower client
     client = MLPClient(model, train_loader, test_loader, val_loader, 2).to_client()

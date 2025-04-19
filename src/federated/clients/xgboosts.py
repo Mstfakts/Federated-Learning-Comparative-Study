@@ -160,7 +160,7 @@ class XGBoostClient(fl.client.Client):
         y_pred = [1 if prob > 0.5 else 0 for prob in y_pred_probs]
         y_true = self.valid_dmatrix.get_label()
 
-        report = classification_report(y_true, y_pred, output_dict=True)
+        report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
         report = flatten_dict(report)
         report["AUC"] = auc
 

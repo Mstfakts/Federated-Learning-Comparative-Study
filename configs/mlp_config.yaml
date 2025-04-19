@@ -7,11 +7,11 @@ training:
   learning_rate: 0.01
 
 data:
-  dataset_path: "hmeq.csv"
+  dataset_path: "hmeq_imputed_scaled_encoded.csv"
   smote: false
   rus: false
-  scale: true
-  encode: true
+  scale: false
+  encode: false
   pca: 0
   kbest: false
   batch_size: 64
@@ -23,8 +23,15 @@ server:
   address: "127.0.0.1:8080"
 
 model:
-  input_size: 23
+  input_size: 16
   hidden_layer_sizes:
-    - 100
+    - 64
+    - 64
+    - 32
   output_size: 1
-  max_iter: 1000
+  #max_iter: 300  # Normalde 300 olunca clientlar tek seferde eğitimi tamamlıyor ve bir daha da loss çok değişmediği için eğitim olmuyor. Bu sebeple iterasyonu ufalttım ki warm_Start=True ile birlikte eğitim aşaması roundlara dağılsın biraz.
+  max_iter: 5
+  activation: relu
+  learning_rate_init: 0.001
+  solver: adam
+  warm_start: true

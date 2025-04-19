@@ -51,7 +51,8 @@ def split_data(data: pd.DataFrame, random_state: int) -> Tuple[pd.DataFrame, pd.
 
 
 def apply_encoding(data):
-    categorical_columns = ['SEX', 'EDUCATION', 'MARRIAGE']
+    # data.select_dtypes(include=['object']) --> ['REASON', 'JOB']
+    categorical_columns = ['REASON', 'JOB']
 
     encoder = OneHotEncoder(sparse_output=False)
 
@@ -74,15 +75,15 @@ def apply_encoding(data):
 def apply_smote(train_data, test_data, val_data, random_state):
     # Apply SMOTE to the training data
     smote_processor = SMOTE(random_state=random_state)
-    X_train = train_data.drop(columns=['TARGET'])
-    y_train = train_data['TARGET']
+    X_train = train_data.drop(columns=['BAD'])
+    y_train = train_data['BAD']
     X_resampled, y_resampled = smote_processor.fit_resample(X_train, y_train)
 
     # Reconstruct the training DataFrame
     train_data = pd.concat(
         [
             pd.DataFrame(X_resampled, columns=X_train.columns),
-            pd.Series(y_resampled, name='TARGET')
+            pd.Series(y_resampled, name='BAD')
         ],
         axis=1
     )
@@ -90,7 +91,7 @@ def apply_smote(train_data, test_data, val_data, random_state):
 
     log(
         logging.WARNING,
-        f"Class distribution after applying SMOTE: {train_data['TARGET'].value_counts()}"
+        f"Class distribution after applying SMOTE: {train_data['BAD'].value_counts()}"
     )
 
     test_data = test_data[train_data.columns]
@@ -101,22 +102,22 @@ def apply_smote(train_data, test_data, val_data, random_state):
 
 def apply_rus(train_data, test_data, val_data, random_state):
     rus = RandomUnderSampler(random_state=random_state)
-    X_train = train_data.drop(columns=['TARGET'])
-    y_train = train_data['TARGET']
+    X_train = train_data.drop(columns=['BAD'])
+    y_train = train_data['BAD']
     X_resampled, y_resampled = rus.fit_resample(X_train, y_train)
 
     # Reconstruct the training DataFrame
     train_data = pd.concat(
         [
             pd.DataFrame(X_resampled, columns=X_train.columns),
-            pd.Series(y_resampled, name='TARGET')
+            pd.Series(y_resampled, name='BAD')
         ],
         axis=1
     )
 
     log(
         logging.WARNING,
-        f"Class distribution after applying RUS: {train_data['TARGET'].value_counts()}"
+        f"Class distribution after applying RUS: {train_data['BAD'].value_counts()}"
     )
 
     test_data = test_data[train_data.columns]
@@ -132,20 +133,20 @@ def apply_pca(train_data, test_data, val_data, pca):
     )
     pca_model = PCA(n_components=pca)
 
-    X_train = train_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-    y_train = train_data['def_pay'].reset_index(drop=True)
+    X_train = train_data.drop(columns=['BAD']).reset_index(drop=True)
+    y_train = train_data['BAD'].reset_index(drop=True)
     train_data = pd.DataFrame(pca_model.fit_transform(X_train))
-    train_data['def_pay'] = y_train
+    train_data['BAD'] = y_train
 
-    X_test = test_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-    y_test = test_data['def_pay'].reset_index(drop=True)
+    X_test = test_data.drop(columns=['BAD']).reset_index(drop=True)
+    y_test = test_data['BAD'].reset_index(drop=True)
     test_data = pd.DataFrame(pca_model.transform(X_test))
-    test_data['def_pay'] = y_test
+    test_data['BAD'] = y_test
 
-    X_val = val_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-    y_val = val_data['def_pay'].reset_index(drop=True)
+    X_val = val_data.drop(columns=['BAD']).reset_index(drop=True)
+    y_val = val_data['BAD'].reset_index(drop=True)
     val_data = pd.DataFrame(pca_model.transform(X_val))
-    val_data['def_pay'] = y_val
+    val_data['BAD'] = y_val
 
     log(
         logging.WARNING,
@@ -198,7 +199,7 @@ def apply_kbest(train_data, test_data, val_data, features):
 
 def transform_dataset_to_dmatrix(data) -> xgb.core.DMatrix:
     """Transform dataset to DMatrix format for xgboost."""
-    y = data["TARGET"]
-    x = data.drop(columns=['TARGET'])
+    y = data["BAD"]
+    x = data.drop(columns=['BAD'])
     new_data = xgb.DMatrix(x, label=y)
     return new_data

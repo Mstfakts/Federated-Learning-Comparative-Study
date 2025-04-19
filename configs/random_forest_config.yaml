@@ -7,17 +7,17 @@ training:
   learning_rate: 0.01
 
 data:
-  dataset_path: "hmeq.csv"
+  dataset_path: "hmeq_imputed_scaled_encoded.csv"
   smote: false
   rus: false
   scale: false
-  encode: true
+  encode: false
   pca: 0
-  kbest: true
+  kbest: false
   batch_size: 64
 
 aggregation:
-  method: FedF1
+  method: FedAvg
 
 server:
   address: "127.0.0.1:8080"
@@ -25,9 +25,9 @@ server:
 model:
   class_weight: balanced
   criterion: 'gini'
-  n_estimators: 100
-  max_depth: 10
-  min_samples_split: 2
+  n_estimators: 200
+  max_depth: 20
+  min_samples_split: 5
   min_samples_leaf: 1
   max_features: 'sqrt'
   bootstrap: true

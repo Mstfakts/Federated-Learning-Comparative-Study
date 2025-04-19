@@ -23,7 +23,7 @@ config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False
 config['data']['smote'] = False
 config['data']['rus'] = False
-config['data']['encode'] = True
+config['data']['encode'] = False
 config['data']['pca'] = False
 config['data']['pandas'] = True
 
@@ -40,25 +40,34 @@ X_sample, y_sample = train_dataloader.features, train_dataloader.labels
 
 # MLPClassifier için Grid Search parametreleri
 # Bunları veri setinizin boyutuna ve zamana göre daraltabilir veya genişletebilirsiniz.
+
 param_grid = {
-    'hidden_layer_sizes': [(50,), (100,), (50, 50)],  # Katman sayısı / nöron sayısı
+    'hidden_layer_sizes': [
+        (32,),           # Tek katman, 32 nöron
+        (64,),           # Tek katman, 64 nöron
+        (32, 16),        # İki katman, 32 ve 16 nöron
+        (32, 32),
+        (64, 32),        # İki katman, 64 ve 32 nöron
+        (64, 64),
+        (128, 64),
+        (64, 128),
+        (128, 128),
+        (64, 128, 64),
+        (64, 64, 32),
+        (64, 64, 64),
+        (64, 32, 32),
+        (64, 32, 16),     # Üç katmanlı yapı
+        (128, 64, 32),
+        (64, 128, 64),
+        #(128, 128, 64),
+        #(128, 128, 128)
+    ],
     'activation': ['relu'],
     'solver': ['adam'],
     'learning_rate_init': [0.001, 0.0001],
-    'max_iter': [200, 500],
-    'warm_start': [False]  # Bu parametre gridsearchte false olmalı. Deneylerde ise True
-}
-# En iyi parametreler: {'activation': 'relu', 'hidden_layer_sizes': (50,), 'learning_rate_init': 0.001, 'max_iter': 200, 'solver': 'adam', 'warm_start': True}
-# En iyi skor: 0.0702673559079406
-
-param_grid = {
-    # 'hidden_layer_sizes': [(32, 32, 32)],  # Katman sayısı / nöron sayısı
-    # 'activation': ['relu'],
-    # 'solver': ['adam'],
-    # 'learning_rate_init': [0.01],
-    # 'max_iter': [2000],
-    # 'early_stopping': [False],
-    'warm_start': [False]  # Bu parametre gridsearchte false olmalı. Deneylerde ise True
+    'max_iter': [300, 500, 800],
+    'early_stopping': [True],
+    'warm_start': [False]  # TODO Bu parametre gridsearchte false olmalı. Deneylerde ise True
 }
 
 mlp = MLPClassifier(random_state=42)
@@ -108,8 +117,8 @@ def plot_confusion_matrix(y_true, y_pred, title):
     plt.show()
 
 
-plot_confusion_matrix(y_test, y_test_pred, 'Test Seti Confusion Matrix')
-plot_confusion_matrix(y_val, y_val_pred, 'Validation Seti Confusion Matrix')
+#plot_confusion_matrix(y_test, y_test_pred, 'Test Seti Confusion Matrix')
+#plot_confusion_matrix(y_val, y_val_pred, 'Validation Seti Confusion Matrix')
 
 
 # ROC eğrisi çizimi
@@ -136,8 +145,8 @@ if hasattr(best_model, "predict_proba"):
     y_test_prob = best_model.predict_proba(test_dataloader.features)[:, 1]
     y_val_prob = best_model.predict_proba(val_dataloader.features)[:, 1]
 
-    plot_roc_curve(y_test, y_test_prob, 'Test Seti ROC Eğrisi')
-    plot_roc_curve(y_val, y_val_prob, 'Validation Seti ROC Eğrisi')
+    #plot_roc_curve(y_test, y_test_prob, 'Test Seti ROC Eğrisi')
+    #plot_roc_curve(y_val, y_val_prob, 'Validation Seti ROC Eğrisi')
 else:
     print("Seçilen solver nedeniyle 'predict_proba' desteklenmiyor.")
 

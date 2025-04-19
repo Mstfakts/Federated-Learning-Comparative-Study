@@ -43,10 +43,10 @@ class DataFrameDataset(Dataset):
 
     def __init__(self, data_frame: pd.DataFrame, use_pca: bool = False):
         self.data = data_frame.reset_index(drop=True)
-        self.labels = self.data['def_pay'].values
+        self.labels = self.data['BAD'].values
 
         # Determine which columns to drop
-        drop_columns = ['def_pay']
+        drop_columns = ['BAD']
         if not use_pca:
             # If PCA is not used, ensure 'index' column is dropped if it exists
             if 'index' in self.data.columns:
@@ -121,7 +121,7 @@ def load_dataloader(
     # Partition the training data for federated learning
     partitioner = DirichletPartitioner(
         num_partitions=n_partitions,
-        partition_by="def_pay",
+        partition_by="BAD",
         alpha=10,
         min_partition_size=1000,
         self_balancing=True)
@@ -161,7 +161,7 @@ def load_dataloader(
 
     log(logging.INFO, f"Client ID: {partition_id}/{n_partitions}")
     log(logging.INFO, f"Data split: (Train: {num_train} - Test: {num_test} - Val: {num_val})")
-    log(logging.INFO, f"Class distribution: {train_data['def_pay'].value_counts().to_dict()}")
+    log(logging.INFO, f"Class distribution: {train_data['BAD'].value_counts().to_dict()}")
 
     dataset_sizes = {
         "trainset": num_train,
@@ -225,7 +225,6 @@ def load_dmatrix(
     # Load and preprocess the data
     data_path = str(os.path.join(CURRENT_FILE_DIR, config['data']['dataset_path']))
     data = pd.read_csv(data_path)
-    data = data_cleaning(data)
 
     log(logging.INFO, f"Shape of initial dataset (train+test+val): {data.shape}")
 
@@ -236,7 +235,7 @@ def load_dmatrix(
     # Partition data
     partitioner = DirichletPartitioner(
         num_partitions=n_partitions,
-        partition_by="def_pay",
+        partition_by="BAD",
         alpha=10,
         min_partition_size=1000,
         self_balancing=True)
@@ -265,7 +264,7 @@ def load_dmatrix(
 
     log(logging.INFO, f"Client ID: {partition_id}/{n_partitions}")
     log(logging.INFO, f"Data split: (Train: {num_train} - Test: {num_test} - Val: {num_val})")
-    log(logging.INFO, f"Class distribution: {train_data['def_pay'].value_counts().to_dict()}")
+    log(logging.INFO, f"Class distribution: {train_data['BAD'].value_counts().to_dict()}")
 
     train_dmatrix = transform_dataset_to_dmatrix(train_data)
     test_dmatrix = transform_dataset_to_dmatrix(test_data)
@@ -309,7 +308,7 @@ def apply_transformations(
             train_data,
             test_data,
             val_data,
-            ['PAY_1', 'PAY_2', 'PAY_3', 'PAY_4', 'PAY_5', 'def_pay', 'index']
+            ['DEROG', 'DELINQ', 'CLAGE', 'NINQ', 'DEBTINC', 'BAD']
         )
         log(logging.INFO, f" --> kBest applied. Shape: {train_data.shape}")
 

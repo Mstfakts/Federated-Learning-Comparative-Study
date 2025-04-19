@@ -27,7 +27,7 @@ config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False
 config['data']['smote'] = False
 config['data']['rus'] = False
-config['data']['encode'] = True
+config['data']['encode'] = False
 config['data']['pca'] = False
 config['data']['pandas'] = True
 

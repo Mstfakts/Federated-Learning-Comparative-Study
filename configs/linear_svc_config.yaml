@@ -7,17 +7,17 @@ training:
   learning_rate: 0.01
 
 data:
-  dataset_path: "hmeq.csv"
+  dataset_path: "hmeq_imputed_scaled_encoded.csv"
   smote: false
   rus: false
   scale: false
-  encode: true
+  encode: false
   pca: 0
-  kbest: true
+  kbest: false
   batch_size: 64
 
 aggregation:
-  method: FedF1
+  method: FedAvg
 
 server:
   address: "127.0.0.1:8080"
@@ -26,6 +26,6 @@ model:
   C: 10
   class_weight: balanced
   dual: auto
-  loss: squared_hinge
+  loss: hinge
   max_iter: 1000
-  penalty: l1
+  penalty: l2

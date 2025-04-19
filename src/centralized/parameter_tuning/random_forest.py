@@ -24,7 +24,7 @@ config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False
 config['data']['smote'] = False
 config['data']['rus'] = False
-config['data']['encode'] = True
+config['data']['encode'] = False
 config['data']['pca'] = False
 config['data']['pandas'] = True
 
@@ -44,7 +44,7 @@ X_sample, y_sample = train_dataloader.features, train_dataloader.labels
 
 # RandomForest için Grid Search parametreleri
 param_grid = {
-    'n_estimators': [100],  # Ağaç sayısı
+    'n_estimators': [200, 400],  # Ağaç sayısı
     'max_depth': [None, 10, 20],  # Azami derinlik (None => sınırsız)
     'min_samples_split': [2, 5],  # Dallanma için gerekli minimum örnek sayısı
     'min_samples_leaf': [1],  # Yaprak düğümünde bulunması gereken minimum örnek sayısı

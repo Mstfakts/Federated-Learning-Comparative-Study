@@ -21,37 +21,9 @@ config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False
 config['data']['smote'] = False
 config['data']['rus'] = False
-config['data']['encode'] = True
+config['data']['encode'] = False
 config['data']['pca'] = False
-
 config['data']['pandas'] = True
-
-
-def get_balanced_sample(features, labels, sample_size_per_class=1000):
-    X_list = []
-    y_list = []
-    class_counts = {}
-
-    # Tüm veriyi tek seferde işleyeceğiz
-    for i, y in enumerate(labels):
-        y = int(y)  # sınıf etiketini integer'a çevir
-        if y not in class_counts:
-            class_counts[y] = 0
-        if class_counts[y] < sample_size_per_class:
-            X_list.append(features[i:i + 1])
-            y_list.append([y])
-            class_counts[y] += 1
-
-        # Tüm sınıflar için yeterli örnek toplandıysa döngüyü bitir
-        if all(count >= sample_size_per_class for count in class_counts.values()):
-            break
-
-    X = np.concatenate(X_list, axis=0)
-    y = np.concatenate(y_list, axis=0)
-
-    # Karıştır
-    indices = np.random.permutation(len(y))
-    return X[indices], y[indices]
 
 
 def f1_score_class_1(y_true, y_pred):
@@ -61,10 +33,6 @@ def f1_score_class_1(y_true, y_pred):
 f1_scorer = make_scorer(f1_score_class_1)
 
 train_dataloader, test_dataloader, val_dataloader, num_examples = partition_data_loader(0)
-
-# X_sample, y_sample = get_balanced_sample(train_dataloader.features,
-#                                          train_dataloader.labels,
-#                                          sample_size_per_class=10000)
 
 X_sample, y_sample = train_dataloader.features, train_dataloader.labels
 
@@ -76,16 +44,6 @@ param_grid = {
     'class_weight': ['balanced'],
     'max_iter': [1000],
     'n_jobs': [-1]
-}
-
-param_grid = {
-    'C': [0.1],
-    'class_weight': ['balanced'],
-    'max_iter': [500],
-    'solver': ["lbfgs"],
-    'warm_start': [True],
-    'n_jobs': [-1],
-    'penalty': ['l2'],
 }
 
 # Grid Search
