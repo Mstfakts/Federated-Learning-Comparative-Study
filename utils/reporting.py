@@ -1,6 +1,7 @@
 import os
 import re
 from collections import defaultdict
+from typing import List, Tuple, Dict, Any
 
 
 def print_classification_report_from_dict(report_dict, experiment_number=1):
@@ -167,3 +168,18 @@ def unflatten_dict(d, sep='_'):
             current_dict = current_dict[k]
         current_dict[keys[-1]] = value
     return result_dict
+
+
+def flatten_report(report: Dict[str, Any], parent_key: str = "") -> Dict[str, float]:
+    """
+    Recursively flatten a nested sklearn classification_report dict.
+    E.g. {'0': {'precision':..}, '1': {...}} → {'0_precision': .., '1_precision': ..}
+    """
+    items: List[Tuple[str, float]] = []
+    for key, val in report.items():
+        new_key = f"{parent_key}_{key}" if parent_key else key
+        if isinstance(val, dict):
+            items.extend(flatten_report(val, new_key).items())
+        else:
+            items.append((new_key, float(val)))
+    return dict(items)

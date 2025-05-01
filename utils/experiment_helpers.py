@@ -55,12 +55,12 @@ def start_commands(ml_algorithm):
     env_name = "Federated-Learning-Comparative-Study"
 
     commands = [
-        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/base/server.py"],
-        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "0"],
-        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "1"],
-        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "2"],
-        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "3"],
-        ["python", f"/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/{ml_algorithm}.py", "--partition-id", "4"]
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/server/server.py"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "0"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "1"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "2"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "3"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "4"]
     ]
 
     for command in commands:

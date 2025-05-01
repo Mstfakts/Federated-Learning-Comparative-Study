@@ -28,16 +28,17 @@ class ML_ALGORITHMS:
 def create_file_names():
     CURR_TIME = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-    ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     # Result file
     RESULT_FILENAME = f"results_{CURR_TIME}.txt"
-    RESULT_FILEPATH = ROOT_DIR + f'/src/federated/' + RESULT_FILENAME
+    RESULT_FILEPATH = ROOT_DIR + f'/results/ml_pipeline_experiments/' + RESULT_FILENAME
     os.environ["result_filepath"] = RESULT_FILEPATH
 
     # Logging file
     LOG_FILENAME = f"experiment_logs_{CURR_TIME}.txt"
-    os.environ["log_filename"] = LOG_FILENAME
+    LOG_FILEPATH = ROOT_DIR + f'/results/ml_pipeline_experiments/' + LOG_FILENAME
+    os.environ["log_filename"] = LOG_FILEPATH
 
 
 def create_logger():

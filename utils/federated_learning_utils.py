@@ -5,10 +5,9 @@ import numpy as np
 from flwr.common import Metrics, Scalar
 from sklearn.svm import LinearSVC
 
-from src.federated.clients.xgboosts import evaluate_metrics_aggregation, config_func
-from src.federated.custom_strategies.fedavg import FedAvg
-from src.federated.custom_strategies.fedf1 import FedF1
-from src.federated.custom_strategies.fedxgbbagging_fedavg_fedf1 import FedXgbBagging
+from src.federated.aggregations.fedavg import FedAvg
+from src.federated.aggregations.fedf1 import FedF1
+from src.federated.aggregations.fedxgbbagging_fedavg_fedf1 import FedXgbBagging
 
 
 def set_initial_params(model: LinearSVC, n_features: int, n_classes: int):

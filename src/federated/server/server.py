@@ -4,7 +4,7 @@ from flwr.server import ServerConfig
 from flwr.server import start_server
 
 from configs.config import get_config
-from src.federated.clients.xgboosts import average_dict
+from utils.reporting import average_dict
 from utils.federated_learning_utils import create_strategy
 from utils.reporting import print_classification_report_from_dict, unflatten_dict
 
