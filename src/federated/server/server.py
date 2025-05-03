@@ -25,12 +25,13 @@ def parse_args():
         help="Which dataset to use (must match keys in configs/datasets.yaml)",
     )
     parser.add_argument(
-        "--rounds", type=int, default=None,
-        help="Number of federated rounds (overrides config)",
+        "--result-file", default=None,
+        help="",
     )
     parser.add_argument(
-        "--resultfile", default=None,
-        help="",
+        "--experiment-type", type=str, required=True,
+        choices=["ml_pipeline_experiments", "class_holdout", "fairness"],
+        help="Type of the experiment"
     )
 
     return parser.parse_args()
@@ -39,7 +40,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    fdr_cfg = load_federated_config()["ml_pipeline_experiments"]
+    fdr_cfg = load_federated_config()[args.experiment_type]
 
     # Define the federated learning strategy
     strategy = create_strategy(
@@ -48,7 +49,7 @@ def main():
     )
 
     # Define the server configuration
-    server_config = ServerConfig(num_rounds=args.rounds)
+    server_config = ServerConfig(num_rounds=fdr_cfg['rounds'])
 
     # Start the Flower server
     hist = start_server(
@@ -57,7 +58,7 @@ def main():
         strategy=strategy,
     )
 
-    if args.algorithm != "xgboosts":
+    if args.algorithm != "xgboost":
         test_result_for_each_epoch = {}
         for k, v in hist.metrics_distributed.items():
             test_result_for_each_epoch[k] = v[-1][1]
@@ -66,7 +67,7 @@ def main():
     else:
         unflattened_results = average_dict(hist.metrics_distributed['record'])
 
-    print_classification_report_from_dict(unflattened_results, RESULT_FILEPATH=args.resultfile)
+    print_classification_report_from_dict(unflattened_results, RESULT_FILEPATH=args.result_file)
 
 
 if __name__ == "__main__":

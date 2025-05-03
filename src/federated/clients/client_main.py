@@ -33,12 +33,9 @@ def parse_args():
         help="Number of federated clients"
     )
     parser.add_argument(
-        "--rounds", type=int, default=10,
-        help="Number of federated rounds"
-    )
-    parser.add_argument(
-        "--sleep-sec", type=int, default=2,
-        help="Seconds to sleep between rounds"
+        "--experiment-type", type=str, required=True,
+        choices=["ml_pipeline_experiments", "class_holdout", "fairness"],
+        help="Type of the experiment"
     )
     return parser.parse_args()
 
@@ -47,7 +44,7 @@ def main():
     args = parse_args()
     ds_cfg = load_datasets_config()[args.dataset]
     algo_cfg = load_algorithms_config()[args.algorithm]
-    fdr_cfg = load_federated_config()["ml_pipeline_experiments"]
+    fdr_cfg = load_federated_config()[args.experiment_type]
 
     # Load data partition
     train_loader, test_loader, val_loader, num_examples = partition_data_loader(
@@ -76,8 +73,7 @@ def main():
         model=model,
         train_loader=train_loader,
         test_loader=test_loader,
-        val_loader=val_loader,
-        sleep_sec=args.sleep_sec
+        val_loader=val_loader
     )
     start_client(
         server_address=fdr_cfg['server'],

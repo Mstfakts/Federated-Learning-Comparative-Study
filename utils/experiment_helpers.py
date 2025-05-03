@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from flwr.common.logger import log
 
-from configs.config_loader import load_datasets_config, load_algorithms_config
+from configs.config_loader import load_algorithms_config
 from utils.reporting import compute_averages, parse_experiment_data, parse_metrics
 
 
@@ -27,8 +27,7 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-
-def start_commands(ml_algorithm, RESULT_FILEPATH):
+def start_commands(ml_algorithm, RESULT_FILEPATH, experiment_type):
     """
     Start the necessary commands for the given machine learning algorithm.
 
@@ -39,14 +38,50 @@ def start_commands(ml_algorithm, RESULT_FILEPATH):
     # TODO hem Win hem MacOS için ayrı ayrı kod yaz
     conda_init_script = "/Users/mustafaaktas/anaconda3/etc/profile.d/conda.sh"
     env_name = "Federated-Learning-Comparative-Study"
+    ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     commands = [
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/server/server.py", "--algorithm", f"{ml_algorithm}", "--dataset", "hmeq", "--rounds", "10", "--resultfile", f"{RESULT_FILEPATH}"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "0", "--dataset", "hmeq", "--rounds", "10"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "1", "--dataset", "hmeq", "--rounds", "10"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "2", "--dataset", "hmeq", "--rounds", "10"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "3", "--dataset", "hmeq", "--rounds", "10"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "4", "--dataset", "hmeq", "--rounds", "10"]
+        ["python",
+         f"{ROOT_DIR}/src/federated/server/server.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--dataset", "hmeq",
+         "--result-file", f"{RESULT_FILEPATH}",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "0",
+         "--clients", "5",
+         "--dataset", "hmeq",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "1",
+         "--clients", "5",
+         "--dataset", "hmeq",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "2",
+         "--clients", "5",
+         "--dataset", "hmeq",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "3",
+         "--clients", "5",
+         "--dataset", "hmeq",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "4",
+         "--clients", "5",
+         "--dataset", "hmeq",
+         "--experiment-type", f"{experiment_type}"]
     ]
 
     for command in commands:
@@ -58,7 +93,6 @@ def start_commands(ml_algorithm, RESULT_FILEPATH):
             f'{cmd_str}'
         )
         os.system(f'''osascript -e 'tell application "Terminal" to do script "{final_command}"' ''')
-
 
 
 def wait_for_file(filepath, wait_interval=5):
@@ -135,7 +169,7 @@ def compute_and_print_averages(filepath, algorithm):
     with open(filepath, 'r') as file:
         content = file.read()
 
-    if algorithm == "xgboosts":
+    if algorithm == "xgboost":
         averaged_metrics = parse_experiment_data(content)
         experiments_num = content.count("EXPERIMENT #")
     else:

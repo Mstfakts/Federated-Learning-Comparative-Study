@@ -17,7 +17,7 @@ class ClientFactory:
         return list(cls._client_map.keys())
 
     @classmethod
-    def create(cls, model_name, model, train_loader, test_loader, val_loader, sleep_sec=2):
+    def create(cls, model_name, model, train_loader, test_loader, val_loader):
         try:
             client_cls = cls._client_map[model_name]
         except KeyError:
@@ -27,6 +27,5 @@ class ClientFactory:
             model=model,
             train_loader=train_loader,
             test_loader=test_loader,
-            val_loader=val_loader,
-            sleep_sec=sleep_sec
+            val_loader=val_loader
         ).to_client()

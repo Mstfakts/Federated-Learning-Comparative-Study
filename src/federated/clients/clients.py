@@ -12,7 +12,7 @@ from utils.reporting import flatten_report
 class BaseClient(fl.client.NumPyClient, abc.ABC):
     """Abstract server class enforcing algorithm-specific client behavior."""
 
-    def __init__(self, model, train_loader, test_loader, val_loader, sleep_sec=2):
+    def __init__(self, model, train_loader, test_loader, val_loader):
         super().__init__()
         self.model = model
         (self.X_train, self.y_train), (self.X_test, self.y_test), (self.X_val, self.y_val) = (
@@ -20,7 +20,6 @@ class BaseClient(fl.client.NumPyClient, abc.ABC):
             (test_loader.dataset.features, test_loader.dataset.labels),
             (val_loader.dataset.features, val_loader.dataset.labels)
         )
-        self.sleep_sec = sleep_sec
 
     @abc.abstractmethod
     def get_parameters(self, config: Optional[fl.common.Config]) -> List[np.ndarray]:

@@ -60,7 +60,7 @@ def main(algorithm, experiment_repeat_num, RESULT_FILEPATH):
     for i in range(experiment_repeat_num):
         set_seed(random.randint(1, 1000))
 
-        start_commands(algorithm, RESULT_FILEPATH)
+        start_commands(algorithm, RESULT_FILEPATH, "ml_pipeline_experiments")
         if i == 0:
             wait_for_file(RESULT_FILEPATH)
 

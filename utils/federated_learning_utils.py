@@ -63,7 +63,7 @@ def create_strategy(model_name, strategy_name):
             logging.INFO,
             f"Current strategy is FedF1"
         )
-        if model_name == "xgboosts":
+        if model_name == "xgboost":
             return FedXgbBagging(
                 strategy="FedF1",
                 fraction_fit=1.0,
@@ -89,7 +89,7 @@ def create_strategy(model_name, strategy_name):
             f"Current strategy is FedAvg"
         )
 
-        if model_name == "xgboosts":
+        if model_name == "xgboost":
             return FedXgbBagging(
                 strategy="FedAvg",
                 fraction_fit=1.0,
