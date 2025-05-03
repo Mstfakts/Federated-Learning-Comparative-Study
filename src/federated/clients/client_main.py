@@ -1,27 +1,40 @@
-import os
-
-os.environ["config_file"] = "logistic_regression"
-
 import argparse
-from configs.config import get_config
-from data.data_loader import partition_data_loader
+
+from flwr.client import start_client
+
+from configs.config_loader import load_datasets_config, load_algorithms_config, load_federated_config
+from data.dataloader import partition_data_loader
 from models.factory import ModelFactory
 from src.federated.clients.client_factory import ClientFactory
 from utils.federated_learning_utils import set_initial_params
-from flwr.client import start_client
-from utils.experiment_helpers import set_algorithm_config
 
 
 def parse_args():
+    datasets = load_datasets_config().keys()
+    algos = load_algorithms_config().keys()
+
     parser = argparse.ArgumentParser(description="Federated Learning Client Runner")
     parser.add_argument(
-        "--model", type=str, required=True,
-        choices=ModelFactory.available_models(),
+        "--dataset", type=str, required=True,
+        choices=datasets,
+        help="Which dataset config to use"
+    )
+    parser.add_argument(
+        "--algorithm", type=str, required=True,
+        choices=algos,
         help="Model name to use for training"
     )
     parser.add_argument(
         "--partition-id", type=int, required=True,
         help="Data partition ID"
+    )
+    parser.add_argument(
+        "--clients", type=int, default=5,
+        help="Number of federated clients"
+    )
+    parser.add_argument(
+        "--rounds", type=int, default=10,
+        help="Number of federated rounds"
     )
     parser.add_argument(
         "--sleep-sec", type=int, default=2,
@@ -32,28 +45,34 @@ def parse_args():
 
 def main():
     args = parse_args()
-    set_algorithm_config(algorithm_name=args.model)
-    config = get_config()
+    ds_cfg = load_datasets_config()[args.dataset]
+    algo_cfg = load_algorithms_config()[args.algorithm]
+    fdr_cfg = load_federated_config()["ml_pipeline_experiments"]
 
     # Load data partition
-    train_loader, test_loader, val_loader, num_examples = partition_data_loader(args.partition_id)
+    train_loader, test_loader, val_loader, num_examples = partition_data_loader(
+        args.partition_id,
+        args.clients,
+        ds_cfg,
+        fdr_cfg
+    )
 
     # Instantiate chosen model via Factory
     model = ModelFactory.create(
-        args.model,
-        **config['model']
+        args.algorithm,
+        **algo_cfg
     )
 
     # Initialize federated parameters
     model = set_initial_params(
         model,
         n_features=train_loader.dataset.features.shape[1],
-        n_classes=config.get('n_classes', 2)
+        n_classes=algo_cfg.get('n_classes', 2)
     )
 
     # Create specialized Flower client and start
     client = ClientFactory.create(
-        model_name=args.model,
+        model_name=args.algorithm,
         model=model,
         train_loader=train_loader,
         test_loader=test_loader,
@@ -61,7 +80,7 @@ def main():
         sleep_sec=args.sleep_sec
     )
     start_client(
-        server_address=config['server']['address'],
+        server_address=fdr_cfg['server'],
         client=client
     )
 

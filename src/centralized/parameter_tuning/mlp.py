@@ -1,7 +1,5 @@
 import os
 
-os.environ["config_file"] = "mlp"
-
 from sklearn.metrics import make_scorer, f1_score, classification_report, confusion_matrix, roc_curve, auc
 from sklearn.model_selection import GridSearchCV
 from sklearn.neural_network import MLPClassifier
@@ -11,13 +9,13 @@ import matplotlib.pyplot as plt
 import warnings
 import pandas as pd
 
-from configs.config import get_config
-from data.data_loader import partition_data_loader
+
+from data.dataloader import partition_data_loader
 
 warnings.filterwarnings('ignore', message='\'n_jobs\' > 1 does not have any effect')
 np.random.seed(42)
 
-config = get_config()
+config=""
 config['client'] = 1
 config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False

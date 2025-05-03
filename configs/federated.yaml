@@ -1,0 +1,16 @@
+ml_pipeline_experiments:
+  clients: 5
+  rounds: 10
+  aggregation: FedAvg
+  server: "0.0.0.0:8080"
+  partitioner:
+    alpha: 10
+    min_partition_size: 1000
+    chunk_size: 1000
+
+
+class_holdout:
+  clients: 5
+
+fairness:
+    clients: 5

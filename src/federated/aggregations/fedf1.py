@@ -16,10 +16,6 @@ from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 from flwr.server.strategy.aggregate import aggregate_inplace
 
-from configs.config import get_config
-
-config = get_config()
-
 
 class FedF1(FedAvg):
 

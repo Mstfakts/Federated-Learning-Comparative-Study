@@ -8,9 +8,8 @@ from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.feature_selection import SelectKBest, f_classif, chi2
 
-os.environ["config_file"] = "logistic_regression"
-from configs.config import get_config
-from data.data_loader import partition_data_loader
+
+from data.dataloader import partition_data_loader
 
 import warnings
 
@@ -18,7 +17,7 @@ warnings.filterwarnings('ignore', message='\'n_jobs\' > 1 does not have any effe
 
 np.random.seed(42)
 metric = 'accuracy'
-config = get_config()
+config=""
 config['client'] = 1
 config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False

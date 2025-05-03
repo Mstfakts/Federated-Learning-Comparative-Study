@@ -6,7 +6,6 @@ import time
 
 from utils.experiment_helpers import (
     set_seed,
-    set_algorithm_config,
     start_commands,
     wait_for_file,
     wait_for_experiment_completion,
@@ -33,15 +32,15 @@ def create_file_names():
     # Result file
     RESULT_FILENAME = f"results_{CURR_TIME}.txt"
     RESULT_FILEPATH = ROOT_DIR + f'/results/ml_pipeline_experiments/' + RESULT_FILENAME
-    os.environ["result_filepath"] = RESULT_FILEPATH
 
     # Logging file
     LOG_FILENAME = f"experiment_logs_{CURR_TIME}.txt"
     LOG_FILEPATH = ROOT_DIR + f'/results/ml_pipeline_experiments/' + LOG_FILENAME
-    os.environ["log_filename"] = LOG_FILEPATH
+
+    return RESULT_FILEPATH, LOG_FILEPATH
 
 
-def create_logger():
+def create_logger(LOG_FILEPATH):
     # Remove existing handlers
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
@@ -51,27 +50,25 @@ def create_logger():
         level=logging.DEBUG,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler(os.environ["log_filename"])
+            logging.FileHandler(LOG_FILEPATH)
         ]
     )
 
 
-def main():
-    _ = set_algorithm_config(os.environ["ml_algorithm"])
-    EXPERIMENT_REPEAT_NUM = int(os.environ["experiment_repeat_num"])
+def main(algorithm, experiment_repeat_num, RESULT_FILEPATH):
 
-    for i in range(EXPERIMENT_REPEAT_NUM):
+    for i in range(experiment_repeat_num):
         set_seed(random.randint(1, 1000))
 
-        start_commands(os.environ["ml_algorithm"])
+        start_commands(algorithm, RESULT_FILEPATH)
         if i == 0:
-            wait_for_file(os.environ["result_filepath"])
+            wait_for_file(RESULT_FILEPATH)
 
         wait_for_experiment_completion(
-            os.environ["result_filepath"], target_count=EXPERIMENT_REPEAT_NUM, iteration=i
+            RESULT_FILEPATH, target_count=experiment_repeat_num, iteration=i
         )
 
-    compute_and_print_averages(os.environ["result_filepath"])
+    compute_and_print_averages(RESULT_FILEPATH, algorithm)
 
 
 if __name__ == "__main__":
@@ -86,19 +83,13 @@ if __name__ == "__main__":
 
     for index, alg in enumerate(algorithms_for_experiment):
         # Create result and logfile names
-        create_file_names()
+        RESULT_FILEPATH, LOG_FILEPATH = create_file_names()
 
         # Adjust logging configurations
-        create_logger()
-
-        # How many times to repeat an experiment
-        os.environ["experiment_repeat_num"] = "10"
-
-        # With which algorithm the experiment will be performed
-        os.environ["ml_algorithm"] = alg
+        create_logger(LOG_FILEPATH)
 
         # Start experiment process
-        main()
+        main(alg, 10, RESULT_FILEPATH)
 
         # Wait for a while
         time.sleep(30)

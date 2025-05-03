@@ -4,9 +4,9 @@ from collections import defaultdict
 from typing import List, Tuple, Dict, Any
 
 
-def print_classification_report_from_dict(report_dict, experiment_number=1):
+def print_classification_report_from_dict(report_dict, experiment_number=1, RESULT_FILEPATH=""):
     # Open the file in append mode to add new results
-    with open(os.environ["result_filepath"], "a") as file:
+    with open(RESULT_FILEPATH, "a") as file:
         # Write experiment header
         experiment_header = f"\nEXPERIMENT #{experiment_number}:\n"
         print(experiment_header)

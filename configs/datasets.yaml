@@ -1,0 +1,34 @@
+taiwan:
+  path: data/raw/train_imputed_lowvarianceremoved225.csv
+  target: TARGET
+  batch_size: 64
+  scale: false
+  smote: false
+  rus: false
+  encode: true
+  pca: 0
+  kbest: false
+
+
+hcdr:
+  path: data/raw/home_credit_default_risk.csv
+  target: BAD
+  batch_size: 64
+  scale: false
+  smote: false
+  rus: false
+  encode: false
+  pca: 0
+  kbest: false
+
+hmeq:
+  path: data/raw/hmeq_imputed_scaled_encoded.csv
+  target: BAD
+  batch_size: 64
+  scale: false
+  smote: false
+  rus: false
+  encode: false
+  pca: 0
+  kbest: false
+

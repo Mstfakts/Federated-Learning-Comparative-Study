@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from flwr.common.logger import log
 
-from configs.config import get_config
+from configs.config_loader import load_datasets_config, load_algorithms_config
 from utils.reporting import compute_averages, parse_experiment_data, parse_metrics
 
 
@@ -27,22 +27,8 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def set_algorithm_config(algorithm_name):
-    """
-    Load the configuration for the specified algorithm and set environment variables.
 
-    Parameters:
-    algorithm_name (str): The name of the machine learning algorithm to use.
-
-    Returns:
-    dict: The configuration dictionary for the specified algorithm.
-    """
-    config = get_config(algorithm_name)
-    os.environ["config_file"] = algorithm_name
-    return config
-
-
-def start_commands(ml_algorithm):
+def start_commands(ml_algorithm, RESULT_FILEPATH):
     """
     Start the necessary commands for the given machine learning algorithm.
 
@@ -55,12 +41,12 @@ def start_commands(ml_algorithm):
     env_name = "Federated-Learning-Comparative-Study"
 
     commands = [
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/server/server.py"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "0"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "1"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "2"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "3"],
-        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--model", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "4"]
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/server/server.py", "--algorithm", f"{ml_algorithm}", "--dataset", "hmeq", "--rounds", "10", "--resultfile", f"{RESULT_FILEPATH}"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "0", "--dataset", "hmeq", "--rounds", "10"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "1", "--dataset", "hmeq", "--rounds", "10"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "2", "--dataset", "hmeq", "--rounds", "10"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "3", "--dataset", "hmeq", "--rounds", "10"],
+        ["python", "/Users/mustafaaktas/PycharmProjects/Federated-Learning-Comparative-Study/src/federated/clients/client_main.py", "--algorithm", f"{ml_algorithm}", "--sleep-sec", "2", "--partition-id", "4", "--dataset", "hmeq", "--rounds", "10"]
     ]
 
     for command in commands:
@@ -139,7 +125,7 @@ def count_experiments_and_classes(filepath):
     return experiment_count, class_count
 
 
-def compute_and_print_averages(filepath):
+def compute_and_print_averages(filepath, algorithm):
     """
     Compute and print the averages of experiment results.
 
@@ -149,7 +135,7 @@ def compute_and_print_averages(filepath):
     with open(filepath, 'r') as file:
         content = file.read()
 
-    if os.environ["config_file"] == "xgboosts":
+    if algorithm == "xgboosts":
         averaged_metrics = parse_experiment_data(content)
         experiments_num = content.count("EXPERIMENT #")
     else:
@@ -175,8 +161,8 @@ def compute_and_print_averages(filepath):
     log_message.append("##############################")
     log_message.append(f"## Configuration Settings: ##")
     log_message.append("##############################")
-    configs = get_config()
-    configs["algorithm"] = os.environ["config_file"]
+
+    configs = load_algorithms_config()[algorithm]
     config_str = json.dumps(configs, indent=4)
     log_message.append(config_str)
 

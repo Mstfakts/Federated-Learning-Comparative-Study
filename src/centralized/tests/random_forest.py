@@ -1,6 +1,4 @@
 import os
-
-os.environ["config_file"] = "random_forest"
 from models.random_forest import model
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import make_scorer, f1_score, classification_report, confusion_matrix, roc_curve, auc
@@ -9,8 +7,8 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from configs.config import get_config
-from data.data_loader import partition_data_loader
+
+from data.dataloader import partition_data_loader
 import warnings
 import pandas as pd
 
@@ -18,7 +16,7 @@ warnings.filterwarnings('ignore', message='\'n_jobs\' > 1 does not have any effe
 np.random.seed(42)
 
 # Config ayarlarını yükle
-config = get_config()
+config=""
 config['client'] = 1
 config['data']['batch_size'] = config['data']['batch_size']
 config['data']['scale'] = False
