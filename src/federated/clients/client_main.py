@@ -6,7 +6,6 @@ from configs.config_loader import load_datasets_config, load_algorithms_config, 
 from data.dataloader import partition_data_loader
 from models.factory import ModelFactory
 from src.federated.clients.client_factory import ClientFactory
-from utils.federated_learning_utils import set_initial_params
 
 
 def parse_args():
@@ -61,10 +60,10 @@ def main():
     )
 
     # Initialize federated parameters
-    model = set_initial_params(
+    ModelFactory.set_initial_params(
         model,
         n_features=train_loader.dataset.features.shape[1],
-        n_classes=algo_cfg.get('n_classes', 2)
+        n_classes=2
     )
 
     # Create specialized Flower client and start
@@ -75,6 +74,7 @@ def main():
         test_loader=test_loader,
         val_loader=val_loader
     )
+
     start_client(
         server_address=fdr_cfg['server'],
         client=client

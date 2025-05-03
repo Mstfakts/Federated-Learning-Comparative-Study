@@ -5,7 +5,7 @@ from flwr.server import ServerConfig
 from flwr.server import start_server
 
 from configs.config_loader import load_datasets_config, load_algorithms_config, load_federated_config
-from utils.federated_learning_utils import create_strategy
+from src.federated.aggregations.factory import create_strategy
 from utils.reporting import average_dict
 from utils.reporting import print_classification_report_from_dict, unflatten_dict
 

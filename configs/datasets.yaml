@@ -1,5 +1,5 @@
 taiwan:
-  path: data/raw/train_imputed_lowvarianceremoved225.csv
+  path: data/raw/UCI_Credit_Card.csv
   target: TARGET
   batch_size: 64
   scale: false
@@ -11,7 +11,7 @@ taiwan:
 
 
 hcdr:
-  path: data/raw/home_credit_default_risk.csv
+  path: data/raw/train_imputed_lowvarianceremoved225.csv
   target: BAD
   batch_size: 64
   scale: false

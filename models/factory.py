@@ -1,3 +1,4 @@
+import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
@@ -24,3 +25,16 @@ class ModelFactory:
             return cls._models[model_name](**kwargs)
         except KeyError:
             raise ValueError(f"Unknown model: {model_name}")
+
+    @classmethod
+    def set_initial_params(cls, model, n_features: int, n_classes: int):
+        """Set initial parameters as zeros.
+
+        Required since model params are uninitialized until model.fit is called but server
+        asks for initial parameters from clients at launch.
+        """
+        model.classes_ = np.array([i for i in range(n_classes)])
+        model.coef_ = np.zeros((1, n_features))
+        if hasattr(model, 'fit_intercept') and model.fit_intercept is not None:
+            model.intercept_ = np.zeros(1)
+        return model
