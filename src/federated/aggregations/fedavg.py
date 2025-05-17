@@ -43,7 +43,7 @@ class FedAvg(flwrFedAvg):
         if not self.accept_failures and failures:
             return None, {}
 
-        if self.inplace:
+        if self.inplace:  # TODO inplace ksımı gereksizse kaldırılsın
             # Does in-place weighted average of results
             aggregated_ndarrays = aggregate_inplace(results)
         else:

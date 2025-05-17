@@ -33,7 +33,7 @@ def parse_args():
     )
     parser.add_argument(
         "--experiment-type", type=str, required=True,
-        choices=["ml_pipeline_experiments", "class_holdout", "fairness"],
+        choices=["ml_pipeline_experiments", "class_holdout", "fairness_experiments"],
         help="Type of the experiment"
     )
     return parser.parse_args()
@@ -70,9 +70,12 @@ def main():
     client = ClientFactory.create(
         model_name=args.algorithm,
         model=model,
+        client_id=args.partition_id,
         train_loader=train_loader,
         test_loader=test_loader,
-        val_loader=val_loader
+        val_loader=val_loader,
+        experiment_type=args.experiment_type,
+        sensitive_features=ds_cfg["sensitive_features"]
     )
 
     start_client(

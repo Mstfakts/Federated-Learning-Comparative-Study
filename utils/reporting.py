@@ -1,4 +1,3 @@
-import os
 import re
 from collections import defaultdict
 from typing import List, Tuple, Dict, Any
@@ -131,7 +130,7 @@ def parse_metrics(data_str):
     current_class = None
     for line in data_str.splitlines():
         # Sınıf başlığını yakala
-        class_match = re.match(r"Class [\w\s]+:", line.strip())
+        class_match = re.match(r"Class [^:]+:", line.strip())
         if class_match:
             current_class = line.strip()
             continue

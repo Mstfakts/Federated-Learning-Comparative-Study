@@ -1,7 +1,13 @@
+# datasets: taiwan, hcdr, or hmeq (Check datasets.yaml)
+# client: It is fixed 5. Do not change it.
+
 ml_pipeline_experiments:
-  clients: 5
-  rounds: 10
+  experiment_name: ml_pipeline_experiments
   aggregation: FedAvg
+  round: 10
+  repeat_num: 10
+  dataset: taiwan
+  client: 5
   server: "0.0.0.0:8080"
   partitioner:
     alpha: 10
@@ -10,7 +16,17 @@ ml_pipeline_experiments:
 
 
 class_holdout:
-  clients: 5
+  experiment_name: class_holdout
 
-fairness:
-    clients: 5
+fairness_experiments:
+  experiment_name: fairness_experiments
+  aggregation: FairFed
+  round: 10
+  repeat_num: 30
+  dataset: taiwan
+  client: 5
+  server: "0.0.0.0:8080"
+  partitioner:
+    alpha: 10
+    min_partition_size: 1000
+    chunk_size: 1000

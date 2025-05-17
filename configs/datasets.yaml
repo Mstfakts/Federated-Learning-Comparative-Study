@@ -1,16 +1,20 @@
 taiwan:
+  name: taiwan
   path: data/raw/UCI_Credit_Card.csv
-  target: TARGET
+  target: default.payment.next.month
   batch_size: 64
   scale: false
   smote: false
   rus: false
-  encode: true
+  encode: false
   pca: 0
   kbest: false
+  sensitive_features:
+    - SEX
 
 
 hcdr:
+  name: hcdr
   path: data/raw/train_imputed_lowvarianceremoved225.csv
   target: BAD
   batch_size: 64
@@ -22,6 +26,7 @@ hcdr:
   kbest: false
 
 hmeq:
+  name: hmeq
   path: data/raw/hmeq_imputed_scaled_encoded.csv
   target: BAD
   batch_size: 64

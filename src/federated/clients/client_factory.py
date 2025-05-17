@@ -17,15 +17,10 @@ class ClientFactory:
         return list(cls._client_map.keys())
 
     @classmethod
-    def create(cls, model_name, model, train_loader, test_loader, val_loader):
+    def create(cls, model_name, **kwargs):
         try:
             client_cls = cls._client_map[model_name]
         except KeyError:
             raise ValueError(f"Unknown client type: {model_name}")
 
-        return client_cls(
-            model=model,
-            train_loader=train_loader,
-            test_loader=test_loader,
-            val_loader=val_loader
-        ).to_client()
+        return client_cls(**kwargs).to_client()

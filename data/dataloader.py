@@ -3,6 +3,7 @@ import logging
 import os
 import random
 from typing import Tuple
+import numpy as np
 
 import pandas as pd
 import torch
@@ -26,6 +27,14 @@ CURRENT_FILE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class DataLoaderFactory:
+    PROPORTIONS = [
+        {1: 0.20, 2: 0.80},  # client0
+        {1: 0.30, 2: 0.70},  # client1
+        {1: 0.40, 2: 0.60},  # client2
+        {1: 0.50, 2: 0.50},  # client3
+        {1: 0.75, 2: 0.25},  # client4
+    ]
+
     @staticmethod
     def create_federated_loaders(
             dataset_config: dict,
@@ -134,19 +143,156 @@ class DataLoaderFactory:
 
         return train_loader, test_loader, val_loader, sizes
 
+    @staticmethod
+    def create_federated_unfair_loaders(
+            dataset_config: dict,
+            federated_config: dict,
+            partition_id: int,
+            num_clients: int,
+            **kwargs
+    ) -> tuple[DataLoader, DataLoader, DataLoader, dict]:
+        """
+        1) CSV'i oku
+        2) (Opsiyonel) encode
+        3) Dirichlet partitioner ile böl
+        4) chunk → DataFrame, birleştir
+        5) train/test/val split
+        6) apply_transformations (SMOTE/RUS/PCA/kBest)
+        7) PyTorch Dataset & DataLoader
+        8) Son olarak boyutları return et
+        """
+
+        # 0) Validate dönüşümler
+        validate_data_args(
+            dataset_config["smote"],
+            dataset_config["rus"],
+            dataset_config["pca"],
+        )
+
+        # 1) Ham veriyi yükle
+        data_path = str(os.path.join(CURRENT_FILE_DIR, dataset_config["path"]))
+        df_master = pd.read_csv(data_path)
+        log(logging.INFO, f"[DataLoader] Loaded {dataset_config['path']} shape={df_master.shape}")
+
+        # 1. Ayrı hedef ve hassas öznitelikleri kaydet
+        Y_master = df_master[dataset_config["target"]]
+        A_master = df_master["SEX"]
+
+        # 2. Diğer özellikleri one-hot encode et
+        X_base = pd.get_dummies(
+            df_master.drop(columns=[dataset_config["target"], "SEX"]),
+            drop_first=True
+        )
+
+        NUM_SPLITS = 5
+        BASE_SEED = 42
+
+        df_base = pd.concat([
+            X_base,
+            Y_master.rename(dataset_config["target"]),
+            A_master.rename("SEX")
+        ], axis=1)
+
+        client_idxs = custom_split_by_sex(df_base, NUM_SPLITS, BASE_SEED, DataLoaderFactory.PROPORTIONS)
+
+        print("=== Client bazında yeni SEX dağılımları ===")
+        for idx, idxs in enumerate(client_idxs):
+            sub = df_base.loc[idxs, "SEX"]
+            counts = sub.value_counts()
+            ratios = sub.value_counts(normalize=True)
+            print(f"Client {idx}:")
+            # SEX=1 önce, sonra SEX=2 olacak şekilde sıralama
+            for sex_val in sorted(counts.index):
+                print(f"  SEX={sex_val}: {counts[sex_val]} kişi ({ratios[sex_val]:.2%})")
+        print()
+
+        # 3. Interest sütununu ekle (ayrımcı sinyal)
+        X = X_base.copy()
+        X["Interest"] = np.random.normal(
+            loc=2 * Y_master,
+            scale=A_master
+        )
+
+        # 4. Hedef ve sensitive sütunlarını yeniden birleştir
+        df = pd.concat([
+            X,
+            Y_master.rename(dataset_config["target"]),
+            A_master.rename("SEX")
+        ], axis=1)
+
+        client_dfs = client_idxs
+
+        logging.info("[DataLoader] Interest feature injected for fairness experiments on Taiwan dataset")
+
+        # 2) Encode
+        if dataset_config["encode"]:
+            df = apply_encoding(df)
+            log(logging.INFO, " → Encoding applied")
+
+        idxs = client_dfs[partition_id]
+        client_df = df.loc[idxs]
+
+        seed_split = BASE_SEED + np.random.randint(0, 100)
+        train_df, test_df, val_df = split_data(client_df, seed_split)
+
+        # 6) Dönüşümler (SMOTE / RUS / PCA / kBest)
+        train_df, test_df, val_df = apply_transformations(
+            train_df,
+            test_df,
+            val_df,
+            BASE_SEED,
+            use_smote=dataset_config["smote"],
+            use_rus=dataset_config["rus"],
+            scale=dataset_config["scale"],
+            encode=dataset_config["encode"],
+            n_pca_components=dataset_config["pca"],
+            kbest=dataset_config["kbest"]
+        )
+
+        # 8) PyTorch Dataset & DataLoader
+        use_pca = dataset_config.get("pca", 0) > 0
+        train_set = DataFrameDataset(train_df, use_pca, dataset_config["target"])
+        test_set = DataFrameDataset(test_df, use_pca, dataset_config["target"])
+        val_set = DataFrameDataset(val_df, use_pca, dataset_config["target"])
+
+        # TODO XGBoost için düzenleme lazım
+        batch_size = dataset_config["batch_size"]
+        train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
+        val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
+
+        sizes = {
+            "train": len(train_df),
+            "test": len(test_df),
+            "val": len(val_df),
+        }
+        log(logging.INFO, f"[DataLoader] Partition {partition_id}/{num_clients} sizes: {sizes}")
+
+        return train_loader, test_loader, val_loader, sizes
+
 
 def partition_data_loader(
         partition_id: int,
         num_clients: int,
         dataset_config: dict,
         federated_config: dict,
+        **kwargs
 ):
-    return DataLoaderFactory.create_federated_loaders(
-        dataset_config=dataset_config,
-        federated_config=federated_config,
-        partition_id=partition_id,
-        num_clients=num_clients,
-    )
+    if federated_config.get("experiment_name") == "fairness_experiments" and dataset_config["name"] == "taiwan":
+        return DataLoaderFactory.create_federated_unfair_loaders(
+            dataset_config=dataset_config,
+            federated_config=federated_config,
+            partition_id=partition_id,
+            num_clients=num_clients,
+        )
+
+    else:
+        return DataLoaderFactory.create_federated_loaders(
+            dataset_config=dataset_config,
+            federated_config=federated_config,
+            partition_id=partition_id,
+            num_clients=num_clients,
+        )
 
 
 class DataFrameDataset(Dataset):
@@ -245,3 +391,47 @@ def apply_transformations(
         log(logging.INFO, f" --> kBest applied. Shape: {train_data.shape}")
 
     return train_data, test_data, val_data
+
+
+def custom_split_by_sex(df: pd.DataFrame,
+                        n_splits: int,
+                        seed: int,
+                        proportions: list[dict[int, float]]):
+    """
+    Her bir client için sabit SEX oranları ile, eşit büyüklükte parçalar oluşturur.
+    proportions: [{sex_val: oran, ...}, ...] uzunluğu n_splits
+    """
+    rs = np.random.RandomState(seed)
+    N = len(df)
+    base = N // n_splits
+    rem = N % n_splits
+    # client boyutları
+    sizes = [base + (1 if i < rem else 0) for i in range(n_splits)]
+    # grup bazında karışık indeks havuzları
+    pools = {}
+    for sex in df["SEX"].unique():
+        idxs = df.index[df["SEX"] == sex].to_list()
+        rs.shuffle(idxs)
+        pools[sex] = idxs
+
+    client_indices = []
+    for i in range(n_splits):
+        ci = []
+        size = sizes[i]
+        prop = proportions[i]
+        # her sex için hedef adet
+        targets = {sex: int(round(prop.get(sex, 0) * size)) for sex in pools}
+        # toplamdan sapma varsa en yüksek orana ekle
+        diff = size - sum(targets.values())
+        if diff:
+            # en büyük prop key’si
+            major = max(prop, key=prop.get)
+            targets[major] += diff
+        # havuzdan al
+        for sex, cnt in targets.items():
+            take = pools[sex][:cnt]
+            ci.extend(take)
+            pools[sex] = pools[sex][cnt:]
+        rs.shuffle(ci)
+        client_indices.append(ci)
+    return client_indices

@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -27,7 +28,49 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def start_commands(ml_algorithm, RESULT_FILEPATH, experiment_type):
+class ML_ALGORITHMS:
+    """
+    Supported algorithms
+    """
+    LINEAR_SVC = "linear_svc"
+    LOGISTIC_REGRESSION = "logistic_regression"
+    MLP = "mlp"
+    RANDOM_FOREST = "random_forest"
+    XGBOOSTS = "xgboosts"
+
+
+def create_file_names(experiment_name):
+    CURR_TIME = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
+    ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Result file
+    RESULT_FILENAME = f"results_{CURR_TIME}.txt"
+    RESULT_FILEPATH = ROOT_DIR + f'/results/{experiment_name}/' + RESULT_FILENAME
+
+    # Logging file
+    LOG_FILENAME = f"experiment_logs_{CURR_TIME}.txt"
+    LOG_FILEPATH = ROOT_DIR + f'/results/{experiment_name}/' + LOG_FILENAME
+
+    return RESULT_FILEPATH, LOG_FILEPATH
+
+
+def create_logger(LOG_FILEPATH):
+    # Remove existing handlers
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
+    # Logger settings
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(LOG_FILEPATH)
+        ]
+    )
+
+
+def start_commands(ml_algorithm, result_filepath, experiment_type, dataset_name, client_num):
     """
     Start the necessary commands for the given machine learning algorithm.
 
@@ -40,47 +83,49 @@ def start_commands(ml_algorithm, RESULT_FILEPATH, experiment_type):
     env_name = "Federated-Learning-Comparative-Study"
     ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+    # TODO önce merkezi ile test edilmeli. Ardından FL sonucu alınıp çıktı dosyaya yazılmalı
+
     commands = [
         ["python",
          f"{ROOT_DIR}/src/federated/server/server.py",
          "--algorithm", f"{ml_algorithm}",
-         "--dataset", "hmeq",
-         "--result-file", f"{RESULT_FILEPATH}",
+         "--dataset", f"{dataset_name}",
+         "--result-file", f"{result_filepath}",
          "--experiment-type", f"{experiment_type}"],
         ["python",
          f"{ROOT_DIR}/src/federated/clients/client_main.py",
          "--algorithm", f"{ml_algorithm}",
          "--partition-id", "0",
-         "--clients", "5",
-         "--dataset", "hmeq",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
          "--experiment-type", f"{experiment_type}"],
         ["python",
          f"{ROOT_DIR}/src/federated/clients/client_main.py",
          "--algorithm", f"{ml_algorithm}",
          "--partition-id", "1",
-         "--clients", "5",
-         "--dataset", "hmeq",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
          "--experiment-type", f"{experiment_type}"],
         ["python",
          f"{ROOT_DIR}/src/federated/clients/client_main.py",
          "--algorithm", f"{ml_algorithm}",
          "--partition-id", "2",
-         "--clients", "5",
-         "--dataset", "hmeq",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
          "--experiment-type", f"{experiment_type}"],
         ["python",
          f"{ROOT_DIR}/src/federated/clients/client_main.py",
          "--algorithm", f"{ml_algorithm}",
          "--partition-id", "3",
-         "--clients", "5",
-         "--dataset", "hmeq",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
          "--experiment-type", f"{experiment_type}"],
         ["python",
          f"{ROOT_DIR}/src/federated/clients/client_main.py",
          "--algorithm", f"{ml_algorithm}",
          "--partition-id", "4",
-         "--clients", "5",
-         "--dataset", "hmeq",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
          "--experiment-type", f"{experiment_type}"]
     ]
 

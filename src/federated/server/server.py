@@ -25,12 +25,16 @@ def parse_args():
         help="Which dataset to use (must match keys in configs/datasets.yaml)",
     )
     parser.add_argument(
+        "--rounds", default=10,
+        help="Number of rounds for each client",
+    )
+    parser.add_argument(
         "--result-file", default=None,
         help="",
     )
     parser.add_argument(
         "--experiment-type", type=str, required=True,
-        choices=["ml_pipeline_experiments", "class_holdout", "fairness"],
+        choices=["ml_pipeline_experiments", "class_holdout", "fairness_experiments"],
         help="Type of the experiment"
     )
 
@@ -49,7 +53,7 @@ def main():
     )
 
     # Define the server configuration
-    server_config = ServerConfig(num_rounds=fdr_cfg['rounds'])
+    server_config = ServerConfig(num_rounds=args.rounds)
 
     # Start the Flower server
     hist = start_server(

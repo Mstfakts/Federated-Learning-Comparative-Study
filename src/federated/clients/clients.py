@@ -1,9 +1,12 @@
 import abc
+import logging
 import warnings
 from typing import List, Optional, Tuple, Dict, Any
 
 import flwr as fl
 import numpy as np
+from fairlearn.metrics import equal_opportunity_difference
+from flwr.common.logger import log
 from sklearn.metrics import classification_report, log_loss
 
 from utils.reporting import flatten_report
@@ -12,14 +15,18 @@ from utils.reporting import flatten_report
 class BaseClient(fl.client.NumPyClient, abc.ABC):
     """Abstract server class enforcing algorithm-specific client behavior."""
 
-    def __init__(self, model, train_loader, test_loader, val_loader):
+    def __init__(self, model, train_loader, test_loader, val_loader, experiment_type, sensitive_features, client_id):
         super().__init__()
         self.model = model
+        self.experiment_type = experiment_type
         (self.X_train, self.y_train), (self.X_test, self.y_test), (self.X_val, self.y_val) = (
             (train_loader.dataset.features, train_loader.dataset.labels),
             (test_loader.dataset.features, test_loader.dataset.labels),
             (val_loader.dataset.features, val_loader.dataset.labels)
         )
+        self.sensitive_test_features = test_loader.dataset.data[sensitive_features]
+        self.sensitive_val_features = val_loader.dataset.data[sensitive_features]
+        self.client_id = client_id
 
     @abc.abstractmethod
     def get_parameters(self, config: Optional[fl.common.Config]) -> List[np.ndarray]:
@@ -337,6 +344,33 @@ class LogisticRegressionClient(BaseClient):
         report = flatten_report(val_report)
         report["train_accuracy"] = train_accuracy
 
+        if self.experiment_type == "fairness_experiments":
+
+            sensitive = self.sensitive_val_features.iloc[:, 0]
+            sensitive = sensitive.to_numpy()
+
+            eod = equal_opportunity_difference(
+                y_true=self.y_val,
+                y_pred=y_val_pred,
+                sensitive_features=sensitive,
+                method="between_groups"
+            )
+
+            log(logging.INFO, f"Client EODs: {eod}")
+
+            unique_vals, counts = np.unique(sensitive, return_counts=True)
+            log(logging.INFO, f"Gruplar ve adetleri: {dict(zip(unique_vals, counts))}")
+
+            for a in unique_vals:
+                mask = (sensitive == a)  # şimdi mask shape=(1062,), 1-boyutlu
+                positives = np.sum(self.y_val[mask] == 1)
+                tps = np.sum((self.y_val[mask] == 1) & (y_val_pred[mask] == 1))
+                tpr = tps / positives if positives > 0 else float('nan')
+                log(logging.INFO, f"Grup {a}: Pozitif={positives}, TP={tps}, TPR={tpr:.3f}")
+            log(logging.INFO, f"Tahminlerde 0 sayısı: {np.sum(y_val_pred == 0)}")
+            log(logging.INFO, f"Tahminlerde 1 sayısı: {np.sum(y_val_pred == 1)}")
+            report[f"equal.opportunity.difference_{self.client_id}"] = eod
+
         return self.get_parameters(config), len(self.X_train), report
 
     def evaluate(
@@ -361,6 +395,21 @@ class LogisticRegressionClient(BaseClient):
         )
         report = flatten_report(test_report)
         report["test_accuracy"] = test_accuracy
+
+        if self.experiment_type == "fairness_experiments":
+            sensitive = self.sensitive_test_features.iloc[:, 0]
+            sensitive = sensitive.to_numpy()
+
+            y_test_pred = self.model.predict(self.X_test)
+            eod = equal_opportunity_difference(
+                y_true=self.y_test,
+                y_pred=y_test_pred,
+                sensitive_features=sensitive,
+                method="between_groups"
+            )
+
+            report["EqualOpportunityDifference"] = eod
+            report[f"equal.opportunity.difference_{self.client_id}"] = eod
 
         return loss, len(self.X_test), report
 
