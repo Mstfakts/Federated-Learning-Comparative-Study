@@ -1,5 +1,6 @@
 # datasets: taiwan, hcdr, or hmeq (Check datasets.yaml)
 # client: It is fixed 5. Do not change it.
+# dataset: fairness_experiments only support taiwan datgset.
 
 ml_pipeline_experiments:
   experiment_name: ml_pipeline_experiments
@@ -23,7 +24,7 @@ fairness_experiments:
   aggregation: FairFed
   round: 10
   repeat_num: 30
-  dataset: taiwan
+  dataset: taiwan  # Do not change it
   client: 5
   server: "0.0.0.0:8080"
   partitioner:
