@@ -64,6 +64,10 @@ class DataLoaderFactory:
         # 1) Ham veriyi yükle
         data_path = str(os.path.join(CURRENT_FILE_DIR, dataset_config["path"]))
         df = pd.read_csv(data_path)
+
+        if 'drop_columns' in dataset_config:
+            df = df.drop(columns=dataset_config['drop_columns'])
+
         log(logging.INFO, f"[DataLoader] Loaded {dataset_config['path']} shape={df.shape}")
 
         # 2) Encode
@@ -115,12 +119,6 @@ class DataLoaderFactory:
             n_pca_components=dataset_config["pca"],
             kbest=dataset_config["kbest"]
         )
-
-        # 7) ID sütunu varsa drop
-        # TODO bus adece 1 veriseti için geçerli ona göre genel bir düzenleme yapılmalı
-        for df_ in (train_df, test_df, val_df):
-            if "SK_ID_CURR" in df_.columns:
-                df_.drop(columns=["SK_ID_CURR"], inplace=True)
 
         # 8) PyTorch Dataset & DataLoader
         use_pca = dataset_config.get("pca", 0) > 0

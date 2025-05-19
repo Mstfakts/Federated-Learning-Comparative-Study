@@ -18,15 +18,17 @@ class BaseClient(fl.client.NumPyClient, abc.ABC):
     def __init__(self, model, train_loader, test_loader, val_loader, experiment_type, sensitive_features, client_id):
         super().__init__()
         self.model = model
+        self.client_id = client_id
         self.experiment_type = experiment_type
         (self.X_train, self.y_train), (self.X_test, self.y_test), (self.X_val, self.y_val) = (
             (train_loader.dataset.features, train_loader.dataset.labels),
             (test_loader.dataset.features, test_loader.dataset.labels),
             (val_loader.dataset.features, val_loader.dataset.labels)
         )
-        self.sensitive_test_features = test_loader.dataset.data[sensitive_features]
-        self.sensitive_val_features = val_loader.dataset.data[sensitive_features]
-        self.client_id = client_id
+
+        if self.experiment_type == "fairness_experiments":
+            self.sensitive_test_features = test_loader.dataset.data[sensitive_features]
+            self.sensitive_val_features = val_loader.dataset.data[sensitive_features]
 
     @abc.abstractmethod
     def get_parameters(self, config: Optional[fl.common.Config]) -> List[np.ndarray]:
@@ -153,16 +155,7 @@ class RandomForestClient(BaseClient):
 
 
 class MLPClient(BaseClient):
-    def __init__(
-            self,
-            model_name: str,
-            data: Tuple[
-                Tuple[np.ndarray, np.ndarray],
-                Tuple[np.ndarray, np.ndarray],
-                Tuple[np.ndarray, np.ndarray],
-            ],
-            config: Dict[str, Any],
-    ):
+    def __init__(self, model, train_loader, test_loader, val_loader, experiment_type, sensitive_features, client_id):
 
         def get_coef_and_intercept_shapes(n_feature):
             """
@@ -171,8 +164,8 @@ class MLPClient(BaseClient):
             output_size: Çıkış sayısı (örneğin, len(np.unique(y)))
             """
             input_size = n_feature
-            hidden_layer_sizes = self.model.config['mlp']['hidden_layer_sizes']
-            output_size = 2
+            hidden_layer_sizes = model.hidden_layer_sizes
+            output_size = 1
 
             # Ağırlık (coefs_) şekillerini oluşturma
             coef_shapes = []
@@ -184,7 +177,7 @@ class MLPClient(BaseClient):
             # Son ağırlık: son gizli katman -> çıkış katmanı
             coef_shapes.append((hidden_layer_sizes[-1], output_size))
 
-            # Bias (intercepts_) şekillerini oluşturma:
+            # Bias (intercept_) şekillerini oluşturma:
             intercept_shapes = []
             # Her gizli katman için bias vektörü
             for size in hidden_layer_sizes:
@@ -194,9 +187,8 @@ class MLPClient(BaseClient):
 
             return [coef_shapes, intercept_shapes]
 
-        (X_train, y_train), _, _ = data  # Train - Val - Test
-        super().__init__(model_name, data, config)
-        self.shapes = get_coef_and_intercept_shapes(n_feature=X_train.shape[1])
+        super().__init__(model, train_loader, test_loader, val_loader, experiment_type, sensitive_features, client_id)
+        self.shapes = get_coef_and_intercept_shapes(n_feature=self.X_train.shape[1])
 
     def get_parameters(self, config: Optional[Dict[str, Any]] = None) -> List[np.ndarray]:
 

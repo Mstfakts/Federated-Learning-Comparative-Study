@@ -11,19 +11,23 @@ taiwan:
   kbest: false
   sensitive_features:
     - SEX
+  drop_columns:
+    - ID
 
 
 hcdr:
   name: hcdr
   path: data/raw/train_imputed_lowvarianceremoved225.csv
-  target: BAD
+  target: TARGET
   batch_size: 64
   scale: false
   smote: false
   rus: false
-  encode: false
+  encode: true
   pca: 0
   kbest: false
+  drop_columns:
+    - SK_ID_CURR
 
 hmeq:
   name: hmeq
@@ -36,4 +40,5 @@ hmeq:
   encode: false
   pca: 0
   kbest: false
-
+  drop_columns:
+    - SK_ID_CURR

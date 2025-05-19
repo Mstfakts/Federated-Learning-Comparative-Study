@@ -25,7 +25,7 @@ def parse_args():
         help="Which dataset to use (must match keys in configs/datasets.yaml)",
     )
     parser.add_argument(
-        "--rounds", default=10,
+        "--rounds", type=int, default=10,
         help="Number of rounds for each client",
     )
     parser.add_argument(

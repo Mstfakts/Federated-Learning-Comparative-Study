@@ -70,7 +70,7 @@ def create_logger(LOG_FILEPATH):
     )
 
 
-def start_commands(ml_algorithm, result_filepath, experiment_type, dataset_name, client_num):
+def start_commands(ml_algorithm, result_filepath, experiment_type, dataset_name, client_num, round_num):
     """
     Start the necessary commands for the given machine learning algorithm.
 
@@ -91,7 +91,8 @@ def start_commands(ml_algorithm, result_filepath, experiment_type, dataset_name,
          "--algorithm", f"{ml_algorithm}",
          "--dataset", f"{dataset_name}",
          "--result-file", f"{result_filepath}",
-         "--experiment-type", f"{experiment_type}"],
+         "--experiment-type", f"{experiment_type}",
+         "--rounds", f"{round_num}"],
         ["python",
          f"{ROOT_DIR}/src/federated/clients/client_main.py",
          "--algorithm", f"{ml_algorithm}",

@@ -21,13 +21,14 @@ federated_config = load_federated_config()[EXPERIMENT]
 REPEAT_NUM = federated_config["repeat_num"]  # How many times each experiment will be repeated (default 10)
 DATASET_NAME = federated_config["dataset"]  # The dataset that will be used for experiment
 CLIENT_NUM = federated_config["client"]  # Number of clients that will be used
+ROUND_NUM = federated_config["round"]
 
 
 def main(algorithm, result_filepath):
     for i in range(REPEAT_NUM):
         set_seed(random.randint(1, 1000))
 
-        start_commands(algorithm, result_filepath, EXPERIMENT, DATASET_NAME, CLIENT_NUM)
+        start_commands(algorithm, result_filepath, EXPERIMENT, DATASET_NAME, CLIENT_NUM, ROUND_NUM)
         if i == 0:
             wait_for_file(result_filepath)
 

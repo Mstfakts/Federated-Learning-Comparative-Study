@@ -60,13 +60,14 @@ def main():
     )
 
     # Initialize federated parameters
-    ModelFactory.set_initial_params(
+    model = ModelFactory.set_initial_params(
         model,
         n_features=train_loader.dataset.features.shape[1],
         n_classes=2
     )
 
     # Create specialized Flower client and start
+    sensitive_features = ds_cfg["sensitive_features"] if 'sensitive_features' in ds_cfg else None
     client = ClientFactory.create(
         model_name=args.algorithm,
         model=model,
@@ -75,7 +76,7 @@ def main():
         test_loader=test_loader,
         val_loader=val_loader,
         experiment_type=args.experiment_type,
-        sensitive_features=ds_cfg["sensitive_features"]
+        sensitive_features=sensitive_features
     )
 
     start_client(
