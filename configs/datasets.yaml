@@ -40,5 +40,3 @@ hmeq:
   encode: false
   pca: 0
   kbest: false
-  drop_columns:
-    - SK_ID_CURR

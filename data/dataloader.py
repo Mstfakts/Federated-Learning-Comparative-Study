@@ -2,11 +2,12 @@ import gc
 import logging
 import os
 import random
-from typing import Tuple
-import numpy as np
+from typing import Tuple, Union
 
+import numpy as np
 import pandas as pd
 import torch
+import xgboost as xgb
 from datasets import Dataset as HFDataset
 from flwr.common.logger import log
 from flwr_datasets.partitioner import DirichletPartitioner
@@ -41,7 +42,13 @@ class DataLoaderFactory:
             federated_config: dict,
             partition_id: int,
             num_clients: int,
-    ) -> tuple[DataLoader, DataLoader, DataLoader, dict]:
+            load_dmatrix=False
+    ) -> tuple[
+        Union[DataLoader, xgb.core.DMatrix],
+        Union[DataLoader, xgb.core.DMatrix],
+        Union[DataLoader, xgb.core.DMatrix],
+        Union[dict, tuple[int, int, int]]
+    ]:
         """
         1) CSV'i oku
         2) (Opsiyonel) encode
@@ -120,23 +127,40 @@ class DataLoaderFactory:
             kbest=dataset_config["kbest"]
         )
 
-        # 8) PyTorch Dataset & DataLoader
-        use_pca = dataset_config.get("pca", 0) > 0
-        train_set = DataFrameDataset(train_df, use_pca, dataset_config["target"])
-        test_set = DataFrameDataset(test_df, use_pca, dataset_config["target"])
-        val_set = DataFrameDataset(val_df, use_pca, dataset_config["target"])
+        if load_dmatrix:
+            num_train, num_test, num_val = len(train_df), len(test_df), len(val_df)
 
-        # TODO XGBoost için düzenleme lazım
-        batch_size = dataset_config["batch_size"]
-        train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
-        test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
-        val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
+            y = train_df[dataset_config["target"]]
+            x = train_df.drop(columns=dataset_config["target"])
+            train_dmatrix = xgb.DMatrix(x, label=y)
 
-        sizes = {
-            "train": len(train_df),
-            "test": len(test_df),
-            "val": len(val_df),
-        }
+            y = test_df[dataset_config["target"]]
+            x = test_df.drop(columns=dataset_config["target"])
+            test_dmatrix = xgb.DMatrix(x, label=y)
+
+            y = val_df[dataset_config["target"]]
+            x = val_df.drop(columns=dataset_config["target"])
+            valid_dmatrix = xgb.DMatrix(x, label=y)
+
+            train_loader, test_loader, val_loader = train_dmatrix, test_dmatrix, valid_dmatrix
+            sizes = (num_train, num_test, num_val)
+        else:
+            # 8) PyTorch Dataset & DataLoader
+            use_pca = dataset_config.get("pca", 0) > 0
+            train_set = DataFrameDataset(train_df, use_pca, dataset_config["target"])
+            test_set = DataFrameDataset(test_df, use_pca, dataset_config["target"])
+            val_set = DataFrameDataset(val_df, use_pca, dataset_config["target"])
+
+            batch_size = dataset_config["batch_size"]
+            train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
+            test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
+            val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=False)
+
+            sizes = {
+                "train": len(train_df),
+                "test": len(test_df),
+                "val": len(val_df),
+            }
         log(logging.INFO, f"[DataLoader] Partition {partition_id}/{num_clients} sizes: {sizes}")
 
         return train_loader, test_loader, val_loader, sizes
@@ -272,11 +296,21 @@ class DataLoaderFactory:
 def partition_data_loader(
         partition_id: int,
         num_clients: int,
+        algorithm_name: str,
         dataset_config: dict,
         federated_config: dict,
         **kwargs
 ):
-    if federated_config.get("experiment_name") == "fairness_experiments" and dataset_config["name"] == "taiwan":
+    if algorithm_name == "xgboost":
+        return DataLoaderFactory.create_federated_loaders(
+            dataset_config=dataset_config,
+            federated_config=federated_config,
+            partition_id=partition_id,
+            num_clients=num_clients,
+            load_dmatrix=True
+        )
+
+    elif federated_config.get("experiment_name") == "fairness_experiments" and dataset_config["name"] == "taiwan":
         return DataLoaderFactory.create_federated_unfair_loaders(
             dataset_config=dataset_config,
             federated_config=federated_config,

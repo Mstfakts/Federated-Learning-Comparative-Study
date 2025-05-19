@@ -38,6 +38,12 @@ class ModelFactory:
             X_dummy = np.zeros((2, n_features))
             y_dummy = np.array([0, 1])
             model.partial_fit(X_dummy, y_dummy, classes=np.array([0, 1]))
+        elif isinstance(model, RandomForestClassifier):
+            X_dummy = np.zeros((10, n_features))
+            y_dummy = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+            model.fit(X_dummy, y_dummy)
+        elif isinstance(model, XGBClassifier):
+            pass
         else:
             model.classes_ = np.array([i for i in range(n_classes)])
             model.coef_ = np.zeros((1, n_features))

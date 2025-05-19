@@ -1,5 +1,6 @@
 import argparse
 
+import xgboost as xgb
 from flwr.client import start_client
 
 from configs.config_loader import load_datasets_config, load_algorithms_config, load_federated_config
@@ -49,6 +50,7 @@ def main():
     train_loader, test_loader, val_loader, num_examples = partition_data_loader(
         args.partition_id,
         args.clients,
+        args.algorithm,
         ds_cfg,
         fdr_cfg
     )
@@ -60,24 +62,30 @@ def main():
     )
 
     # Initialize federated parameters
+    n_features = None if isinstance(train_loader, xgb.DMatrix) else train_loader.dataset.features.shape[1]
     model = ModelFactory.set_initial_params(
         model,
-        n_features=train_loader.dataset.features.shape[1],
+        n_features=n_features,
         n_classes=2
     )
 
     # Create specialized Flower client and start
-    sensitive_features = ds_cfg["sensitive_features"] if 'sensitive_features' in ds_cfg else None
-    client = ClientFactory.create(
-        model_name=args.algorithm,
-        model=model,
-        client_id=args.partition_id,
-        train_loader=train_loader,
-        test_loader=test_loader,
-        val_loader=val_loader,
-        experiment_type=args.experiment_type,
-        sensitive_features=sensitive_features
-    )
+    client_dict = {
+        "model_name": args.algorithm,
+        "model": model,
+        "client_id": args.partition_id,
+        "train_loader": train_loader,
+        "test_loader": test_loader,
+        "val_loader": val_loader,
+        "experiment_type": args.experiment_type,
+        "sensitive_features": ds_cfg["sensitive_features"] if 'sensitive_features' in ds_cfg else None
+    }
+
+    if isinstance(train_loader, xgb.DMatrix):
+        client_dict["num_local_round"] = fdr_cfg["round"]
+        client_dict["params"] = algo_cfg
+
+    client = ClientFactory.create(**client_dict)
 
     start_client(
         server_address=fdr_cfg['server'],

@@ -36,7 +36,7 @@ class ML_ALGORITHMS:
     LOGISTIC_REGRESSION = "logistic_regression"
     MLP = "mlp"
     RANDOM_FOREST = "random_forest"
-    XGBOOSTS = "xgboosts"
+    XGBOOSTS = "xgboost"
 
 
 def create_file_names(experiment_name):
