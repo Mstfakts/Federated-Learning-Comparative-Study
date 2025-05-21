@@ -206,14 +206,14 @@ class DataLoaderFactory:
             drop_first=True
         )
 
-        NUM_SPLITS = 5
-        BASE_SEED = 42
-
         df_base = pd.concat([
             X_base,
             Y_master.rename(dataset_config["target"]),
             A_master.rename("SEX")
         ], axis=1)
+
+        NUM_SPLITS = 5
+        BASE_SEED = 42
 
         client_idxs = custom_split_by_sex(df_base, NUM_SPLITS, BASE_SEED, DataLoaderFactory.PROPORTIONS)
 
