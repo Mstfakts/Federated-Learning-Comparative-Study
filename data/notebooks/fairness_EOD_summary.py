@@ -5,7 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 # Give a result file
-FILE_NAME = "results_2025-05-18_01-08-30.txt"
+FILE_NAME = "results_2025-05-24_03-22-28.txt"
 here = Path(__file__).resolve()
 project_root = here.parents[2]
 results_dir = project_root / "results" / "fairness_experiments" / FILE_NAME

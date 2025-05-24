@@ -11,6 +11,7 @@ from configs.config_loader import load_datasets_config, load_algorithms_config, 
 from data.data_process import split_data
 from data.dataloader import custom_split_by_sex
 from data.dataloader import DataLoaderFactory
+from sklearn.metrics import classification_report
 
 # --- Config & Veri Yükleme ---
 algo_cfg = load_algorithms_config()["logistic_regression"]
@@ -60,6 +61,10 @@ print()
 
 # --- 2) 100 run boyunca EOD topla ---
 eod_results = np.zeros((NUM_RUNS, NUM_SPLITS))
+class_result_p = np.zeros((NUM_RUNS, NUM_SPLITS))
+class_result_r = np.zeros((NUM_RUNS, NUM_SPLITS))
+class_result_f1 = np.zeros((NUM_RUNS, NUM_SPLITS))
+class_result_acc = np.zeros((NUM_RUNS, NUM_SPLITS))
 
 for run in range(NUM_RUNS):
     seed = BASE_SEED + run
@@ -79,12 +84,14 @@ for run in range(NUM_RUNS):
 
     # client içi train/test/val split ve train setlerini topla
     train_parts = []
+    test_sets = []
     val_sets = []
     for i, idxs in enumerate(client_idxs):
         client_df = df.loc[idxs]
         # her run, her client için rastgele böl
-        train_df, _, val_df = split_data(client_df, seed + i)
+        train_df, test_df, val_df = split_data(client_df, seed + i)
         train_parts.append(train_df)
+        test_sets.append(test_df)
         val_sets.append(val_df)
 
     # tüm client’ların train setlerini birleştir
@@ -108,11 +115,53 @@ for run in range(NUM_RUNS):
             method="between_groups"
         )
 
+    # her client için test üzerinde class_report ölç
+    for i, test_df in enumerate(test_sets):
+        test_y = test_df[ds_cfg["target"]]
+        test_x = test_df.drop(columns=["ID", ds_cfg["target"]])
+        y_pred = model.predict(test_x)
+        res_1 = classification_report(
+            test_y, y_pred, output_dict=True, zero_division=0
+        )
+        class_result_p[run, i] = res_1['1']['precision']
+        class_result_r[run, i] = res_1['1']['recall']
+        class_result_f1[run, i] = res_1['1']['f1-score']
+        class_result_acc[run, i] = res_1['accuracy']
+
 # --- 3) Sonuçları özetle ---
 avg_eod_per_client = eod_results.mean(axis=0)
 overall_avg_eod = eod_results.mean()
+
+avg_p_per_client = class_result_p.mean(axis=0)
+overall_avg_p = class_result_p.mean()
+avg_r_per_client = class_result_r.mean(axis=0)
+overall_r_eod = class_result_r.mean()
+avg_f1_per_client = class_result_f1.mean(axis=0)
+overall_f1_eod = class_result_f1.mean()
+avg_acc_per_client = class_result_acc.mean(axis=0)
+overall_acc_eod = class_result_acc.mean()
 
 print("=== Ortalama EOD değerleri ===")
 for idx, avg in enumerate(avg_eod_per_client):
     print(f"Client {idx} EOD (ortalama over {NUM_RUNS} runs): {avg:.4f}")
 print(f"Overall average EOD: {overall_avg_eod:.4f}")
+print()
+# print("=== Ortalama Precision değerleri ===")
+# for idx, avg in enumerate(avg_p_per_client):
+#     print(f"Client {idx} Precision (ortalama over {NUM_RUNS} runs): {avg:.4f}")
+print(f"Overall average Precision: {overall_avg_p:.4f}")
+print()
+# print("=== Ortalama Recall değerleri ===")
+# for idx, avg in enumerate(avg_r_per_client):
+#     print(f"Client {idx} Recall (ortalama over {NUM_RUNS} runs): {avg:.4f}")
+print(f"Overall average Recall: {overall_r_eod:.4f}")
+print()
+# print("=== Ortalama F1 değerleri ===")
+# for idx, avg in enumerate(avg_f1_per_client):
+#     print(f"Client {idx} F1 (ortalama over {NUM_RUNS} runs): {avg:.4f}")
+print(f"Overall average F1: {overall_f1_eod:.4f}")
+print()
+# print("=== Ortalama Accuracy değerleri ===")
+# for idx, avg in enumerate(avg_acc_per_client):
+#     print(f"Client {idx} Accuracy (ortalama over {NUM_RUNS} runs): {avg:.4f}")
+print(f"Overall average Accuracy: {overall_acc_eod:.4f}")
