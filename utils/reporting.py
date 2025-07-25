@@ -1,11 +1,11 @@
-import os
 import re
 from collections import defaultdict
+from typing import List, Tuple, Dict, Any
 
 
-def print_classification_report_from_dict(report_dict, experiment_number=1):
+def print_classification_report_from_dict(report_dict, experiment_number=1, RESULT_FILEPATH=""):
     # Open the file in append mode to add new results
-    with open(os.environ["result_filepath"], "a") as file:
+    with open(RESULT_FILEPATH, "a") as file:
         # Write experiment header
         experiment_header = f"\nEXPERIMENT #{experiment_number}:\n"
         print(experiment_header)
@@ -130,7 +130,7 @@ def parse_metrics(data_str):
     current_class = None
     for line in data_str.splitlines():
         # Sınıf başlığını yakala
-        class_match = re.match(r"Class [\w\s]+:", line.strip())
+        class_match = re.match(r"Class [^:]+:", line.strip())
         if class_match:
             current_class = line.strip()
             continue
@@ -167,3 +167,18 @@ def unflatten_dict(d, sep='_'):
             current_dict = current_dict[k]
         current_dict[keys[-1]] = value
     return result_dict
+
+
+def flatten_report(report: Dict[str, Any], parent_key: str = "") -> Dict[str, float]:
+    """
+    Recursively flatten a nested sklearn classification_report dict.
+    E.g. {'0': {'precision':..}, '1': {...}} → {'0_precision': .., '1_precision': ..}
+    """
+    items: List[Tuple[str, float]] = []
+    for key, val in report.items():
+        new_key = f"{parent_key}_{key}" if parent_key else key
+        if isinstance(val, dict):
+            items.extend(flatten_report(val, new_key).items())
+        else:
+            items.append((new_key, float(val)))
+    return dict(items)

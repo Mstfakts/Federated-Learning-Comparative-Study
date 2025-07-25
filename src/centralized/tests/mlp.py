@@ -1,0 +1,125 @@
+import os
+
+import numpy as np
+from sklearn.metrics import classification_report, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+from data.dataloader import partition_data_loader
+import warnings
+
+warnings.filterwarnings('ignore', message='\'n_jobs\' > 1 does not have any effect')
+np.random.seed(42)
+config=""
+config['client'] = 1
+config['data']['batch_size'] = config['data']['batch_size']
+config['data']['scale'] = False
+config['data']['smote'] = False
+config['data']['rus'] = True
+config['data']['encode'] = True
+config['data']['kbest'] = False
+config['data']['pca'] = 0
+
+config['data']['pandas'] = True
+
+train_dataloader, test_dataloader, val_dataloader, num_examples = partition_data_loader(0)
+
+X_sample, y_sample = train_dataloader.features, train_dataloader.labels
+
+from sklearn.neural_network import MLPClassifier
+
+lr = MLPClassifier(hidden_layer_sizes=100,
+                   activation='relu',
+                   solver='adam',
+                   alpha=0.0001,
+                   learning_rate_init=0.001,
+                   max_iter=200,
+                   random_state=42)
+
+lr.fit(X_sample, y_sample)
+
+# En iyi modelle tahmin yapma
+y_test_pred = lr.predict(test_dataloader.features)
+y_val_pred = lr.predict(val_dataloader.features)
+
+y_test = test_dataloader.labels
+y_val = val_dataloader.labels
+# Test performansı
+print("\nTest Seti Performansı:")
+print(classification_report(y_test, y_test_pred))
+
+# Validation performansı
+print("\nValidation Seti Performansı:")
+print(classification_report(y_val, y_val_pred))
+
+
+# Confusion Matrix'leri görselleştirme
+def plot_confusion_matrix(y_true, y_pred, title):
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    plt.title(title)
+    plt.xlabel('Tahmin')
+    plt.ylabel('Gerçek')
+    plt.show()
+
+
+#plot_confusion_matrix(y_test, y_test_pred, 'Test Seti Confusion Matrix')
+#plot_confusion_matrix(y_val, y_val_pred, 'Validation Seti Confusion Matrix')
+
+# Probability tahminlerini alma ve ROC eğrisi çizme
+from sklearn.metrics import roc_curve, auc
+
+
+def plot_roc_curve(y_true, y_prob, title):
+    fpr, tpr, _ = roc_curve(y_true, y_prob)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC eğrisi (AUC = {roc_auc:.2f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title(title)
+    plt.legend(loc="lower right")
+    plt.show()
+
+
+# Olasılık tahminleri
+y_test_prob = lr.predict_proba(test_dataloader.features)[:, 1]
+y_val_prob = lr.predict_proba(val_dataloader.features)[:, 1]
+
+
+#plot_roc_curve(y_test, y_test_prob, 'Test Seti ROC Eğrisi')
+#plot_roc_curve(y_val, y_val_prob, 'Validation Seti ROC Eğrisi')
+
+
+# Train, Test ve Validation performanslarını karşılaştırma
+def get_metrics(y_true, y_pred):
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+    return {
+        'Accuracy': accuracy_score(y_true, y_pred),
+        'Precision': precision_score(y_true, y_pred),
+        'Recall': recall_score(y_true, y_pred),
+        'F1': f1_score(y_true, y_pred)
+    }
+
+
+train_metrics = get_metrics(train_dataloader.labels, lr.predict(train_dataloader.features))
+test_metrics = get_metrics(y_test, y_test_pred)
+val_metrics = get_metrics(y_val, y_val_pred)
+
+# Metrikleri DataFrame'e çevirip karşılaştırma
+import pandas as pd
+
+metrics_df = pd.DataFrame({
+    'Train': train_metrics,
+    'Test': test_metrics,
+    'Validation': val_metrics
+})
+
+print("\nTüm Metrikler Karşılaştırması:")
+print(metrics_df)

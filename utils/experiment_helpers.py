@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -8,7 +9,7 @@ import numpy as np
 import torch
 from flwr.common.logger import log
 
-from configs.config import get_config
+from configs.config_loader import load_algorithms_config
 from utils.reporting import compute_averages, parse_experiment_data, parse_metrics
 
 
@@ -27,39 +28,117 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def set_algorithm_config(algorithm_name):
+class ML_ALGORITHMS:
     """
-    Load the configuration for the specified algorithm and set environment variables.
-
-    Parameters:
-    algorithm_name (str): The name of the machine learning algorithm to use.
-
-    Returns:
-    dict: The configuration dictionary for the specified algorithm.
+    Supported algorithms
     """
-    config = get_config(algorithm_name)
-    os.environ["config_file"] = algorithm_name
-    return config
+    LINEAR_SVC = "linear_svc"
+    LOGISTIC_REGRESSION = "logistic_regression"
+    MLP = "mlp"
+    RANDOM_FOREST = "random_forest"
+    XGBOOSTS = "xgboost"
 
 
-def start_commands(ml_algorithm):
+def create_file_names(experiment_name):
+    CURR_TIME = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
+    ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Result file
+    RESULT_FILENAME = f"results_{CURR_TIME}.txt"
+    RESULT_FILEPATH = ROOT_DIR + f'/results/{experiment_name}/' + RESULT_FILENAME
+
+    # Logging file
+    LOG_FILENAME = f"experiment_logs_{CURR_TIME}.txt"
+    LOG_FILEPATH = ROOT_DIR + f'/results/{experiment_name}/' + LOG_FILENAME
+
+    return RESULT_FILEPATH, LOG_FILEPATH
+
+
+def create_logger(LOG_FILEPATH):
+    # Remove existing handlers
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
+    # Logger settings
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(LOG_FILEPATH)
+        ]
+    )
+
+
+def start_commands(ml_algorithm, result_filepath, experiment_type, dataset_name, client_num, round_num):
     """
     Start the necessary commands for the given machine learning algorithm.
 
     Parameters:
     ml_algorithm (str): The name of the machine learning algorithm.
     """
+
+    # TODO hem Win hem MacOS için ayrı ayrı kod yaz
+    conda_init_script = "/Users/mustafaaktas/anaconda3/etc/profile.d/conda.sh"
+    env_name = "Federated-Learning-Comparative-Study"
+    ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # TODO önce merkezi ile test edilmeli. Ardından FL sonucu alınıp çıktı dosyaya yazılmalı
+
     commands = [
-        ["python", f"base/server.py"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "0"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "1"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "2"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "3"],
-        ["python", f"clients/{ml_algorithm}.py", "--partition-id", "4"]
+        ["python",
+         f"{ROOT_DIR}/src/federated/server/server.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--dataset", f"{dataset_name}",
+         "--result-file", f"{result_filepath}",
+         "--experiment-type", f"{experiment_type}",
+         "--rounds", f"{round_num}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "0",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "1",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "2",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "3",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
+         "--experiment-type", f"{experiment_type}"],
+        ["python",
+         f"{ROOT_DIR}/src/federated/clients/client_main.py",
+         "--algorithm", f"{ml_algorithm}",
+         "--partition-id", "4",
+         "--clients", f"{client_num}",
+         "--dataset", f"{dataset_name}",
+         "--experiment-type", f"{experiment_type}"]
     ]
 
     for command in commands:
-        os.system(f"start cmd /k {' '.join(command)}")
+        cmd_str = " ".join(command)
+
+        final_command = (
+            f'source {conda_init_script}; '
+            f'conda activate {env_name}; '
+            f'{cmd_str}'
+        )
+        os.system(f'''osascript -e 'tell application "Terminal" to do script "{final_command}"' ''')
 
 
 def wait_for_file(filepath, wait_interval=5):
@@ -126,7 +205,7 @@ def count_experiments_and_classes(filepath):
     return experiment_count, class_count
 
 
-def compute_and_print_averages(filepath):
+def compute_and_print_averages(filepath, algorithm):
     """
     Compute and print the averages of experiment results.
 
@@ -136,7 +215,7 @@ def compute_and_print_averages(filepath):
     with open(filepath, 'r') as file:
         content = file.read()
 
-    if os.environ["config_file"] == "xgboosts":
+    if algorithm == "xgboost":
         averaged_metrics = parse_experiment_data(content)
         experiments_num = content.count("EXPERIMENT #")
     else:
@@ -162,8 +241,8 @@ def compute_and_print_averages(filepath):
     log_message.append("##############################")
     log_message.append(f"## Configuration Settings: ##")
     log_message.append("##############################")
-    configs = get_config()
-    configs["algorithm"] = os.environ["config_file"]
+
+    configs = load_algorithms_config()[algorithm]
     config_str = json.dumps(configs, indent=4)
     log_message.append(config_str)
 

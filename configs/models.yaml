@@ -1,0 +1,45 @@
+logistic_regression:
+  C: 100
+  penalty: l1
+  solver: liblinear
+  max_iter: 5000
+  n_jobs: -1
+
+mlp:
+  hidden_layer_sizes:
+    - 64
+    - 64
+    - 32
+  max_iter: 5
+  activation: relu
+  learning_rate_init: 0.001
+  solver: adam
+  warm_start: true
+  alpha: 0.0001
+  verbose: true
+  early_stopping: false
+
+linear_svc:
+  C: 10
+  class_weight: balanced
+  dual: auto
+  loss: hinge
+  max_iter: 1
+  penalty: l2
+
+xgboost:
+  n_estimators: 100
+  max_depth: 3
+  learning_rate: 0.1
+  use_label_encoder: false
+  eval_metric: logloss
+
+random_forest:
+  class_weight: balanced
+  criterion: 'gini'
+  n_estimators: 200
+  max_depth: 20
+  min_samples_split: 5
+  min_samples_leaf: 1
+  max_features: 'sqrt'
+  bootstrap: true

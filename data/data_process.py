@@ -1,32 +1,15 @@
-from typing import Tuple, Union
 import logging
+from typing import Tuple
 
+import pandas as pd
 import xgboost as xgb
-from datasets import DatasetDict
 from flwr.common.logger import log
 from imblearn.over_sampling import SMOTE
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from imblearn.under_sampling import RandomUnderSampler
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.decomposition import PCA
-from torch.utils.data import Dataset
-
-
-def data_cleaning(data: pd.DataFrame) -> pd.DataFrame:
-    # Rename columns for consistency
-    data = data.rename(
-        columns={
-            'default.payment.next.month': 'def_pay',
-            'PAY_0': 'PAY_1'
-        }
-    )
-
-    # Drop the 'ID' column as it's not needed and add index column
-    data = data.drop(['ID'], axis=1)
-    data['index'] = data.index
-    return data
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
 
 
 def split_data(data: pd.DataFrame, random_state: int) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -51,22 +34,22 @@ def split_data(data: pd.DataFrame, random_state: int) -> Tuple[pd.DataFrame, pd.
 
 
 def apply_encoding(data):
-    categorical_columns = ['SEX', 'EDUCATION', 'MARRIAGE']
+    le = LabelEncoder()
 
-    encoder = OneHotEncoder(sparse_output=False)
+    df_cat = data.select_dtypes(include=['object', 'bool'])
+    for col in df_cat:
+        if df_cat[col].dtype in ['object', 'bool']:
+            # If 2 or fewer unique categories
+            if len(list(df_cat[col].unique())) <= 2:
+                # Train on the training data
+                le.fit(df_cat[col])
+                # Transform both training and testing data
+                df_cat[col] = le.transform(df_cat[col])
 
-    X_categorical = data[categorical_columns]
-    X_encoded = encoder.fit_transform(X_categorical)
+    df_cat = pd.get_dummies(df_cat)
 
-    encoded_feature_names = encoder.get_feature_names_out(categorical_columns)
-    df_encoded = pd.DataFrame(X_encoded, columns=encoded_feature_names)
-    df_numeric = data.drop(columns=categorical_columns)
-    data = pd.concat(
-        [
-            df_numeric.reset_index(drop=True),
-            df_encoded.reset_index(drop=True)
-        ], axis=1
-    )
+    cat_cols = df_cat.columns
+    data[cat_cols] = df_cat
 
     return data
 
@@ -74,17 +57,24 @@ def apply_encoding(data):
 def apply_smote(train_data, test_data, val_data, random_state):
     # Apply SMOTE to the training data
     smote_processor = SMOTE(random_state=random_state)
-    X_train = train_data.drop(columns=['def_pay', 'index'])
-    y_train = train_data['def_pay']
+    X_train = train_data.drop(columns=['TARGET'])
+    y_train = train_data['TARGET']
     X_resampled, y_resampled = smote_processor.fit_resample(X_train, y_train)
 
     # Reconstruct the training DataFrame
-    train_data = pd.DataFrame(X_resampled, columns=X_train.columns)
-    train_data['def_pay'] = y_resampled
-    train_data = train_data.reset_index(drop=True)
-    train_data['index'] = train_data.index
+    train_data = pd.concat(
+        [
+            pd.DataFrame(X_resampled, columns=X_train.columns),
+            pd.Series(y_resampled, name='TARGET')
+        ],
+        axis=1
+    )
 
-    print(f"Class distribution after applying SMOTE: {train_data['def_pay'].value_counts()}")
+
+    log(
+        logging.WARNING,
+        f"Class distribution after applying SMOTE: {train_data['TARGET'].value_counts()}"
+    )
 
     test_data = test_data[train_data.columns]
     val_data = val_data[train_data.columns]
@@ -94,17 +84,23 @@ def apply_smote(train_data, test_data, val_data, random_state):
 
 def apply_rus(train_data, test_data, val_data, random_state):
     rus = RandomUnderSampler(random_state=random_state)
-    X_train = train_data.drop(columns=['def_pay', 'index'])
-    y_train = train_data['def_pay']
+    X_train = train_data.drop(columns=['TARGET'])
+    y_train = train_data['TARGET']
     X_resampled, y_resampled = rus.fit_resample(X_train, y_train)
 
     # Reconstruct the training DataFrame
-    train_data = pd.DataFrame(X_resampled, columns=X_train.columns)
-    train_data['def_pay'] = y_resampled
-    train_data = train_data.reset_index(drop=True)
-    train_data['index'] = train_data.index
+    train_data = pd.concat(
+        [
+            pd.DataFrame(X_resampled, columns=X_train.columns),
+            pd.Series(y_resampled, name='TARGET')
+        ],
+        axis=1
+    )
 
-    print(f"Class distribution after applying RUS: {train_data['def_pay'].value_counts()}")
+    log(
+        logging.WARNING,
+        f"Class distribution after applying RUS: {train_data['TARGET'].value_counts()}"
+    )
 
     test_data = test_data[train_data.columns]
     val_data = val_data[train_data.columns]
@@ -119,20 +115,20 @@ def apply_pca(train_data, test_data, val_data, pca):
     )
     pca_model = PCA(n_components=pca)
 
-    X_train = train_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-    y_train = train_data['def_pay'].reset_index(drop=True)
+    X_train = train_data.drop(columns=['TARGET']).reset_index(drop=True)
+    y_train = train_data['TARGET'].reset_index(drop=True)
     train_data = pd.DataFrame(pca_model.fit_transform(X_train))
-    train_data['def_pay'] = y_train
+    train_data['TARGET'] = y_train
 
-    X_test = test_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-    y_test = test_data['def_pay'].reset_index(drop=True)
+    X_test = test_data.drop(columns=['TARGET']).reset_index(drop=True)
+    y_test = test_data['TARGET'].reset_index(drop=True)
     test_data = pd.DataFrame(pca_model.transform(X_test))
-    test_data['def_pay'] = y_test
+    test_data['TARGET'] = y_test
 
-    X_val = val_data.drop(columns=['def_pay', 'index']).reset_index(drop=True)
-    y_val = val_data['def_pay'].reset_index(drop=True)
+    X_val = val_data.drop(columns=['TARGET']).reset_index(drop=True)
+    y_val = val_data['TARGET'].reset_index(drop=True)
     val_data = pd.DataFrame(pca_model.transform(X_val))
-    val_data['def_pay'] = y_val
+    val_data['TARGET'] = y_val
 
     log(
         logging.WARNING,
@@ -185,7 +181,7 @@ def apply_kbest(train_data, test_data, val_data, features):
 
 def transform_dataset_to_dmatrix(data) -> xgb.core.DMatrix:
     """Transform dataset to DMatrix format for xgboost."""
-    y = data["def_pay"]
-    x = data.drop(columns=['def_pay', 'index'])
+    y = data["TARGET"]
+    x = data.drop(columns=['TARGET'])
     new_data = xgb.DMatrix(x, label=y)
     return new_data
